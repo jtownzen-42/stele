@@ -1,0 +1,51 @@
+# Environments & Dependencies
+.venv/
+env/
+venv/
+.deps-installed
+
+# Python artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyd
+
+# Testing & Coverage
+.pytest_cache/
+.coverage
+htmlcov/
+
+# IDE & Editor folders
+.vs/
+.vscode/
+.idea/
+*.suo
+*.user
+
+# Archives & Large artifacts
+*.zip
+*.tar.gz
+*.7z
+*.rar
+Stele.zip
+
+# Stele Local App Data, DBs, ISOs & Logs
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+*.sqlite
+*.log
+*.iso
+burn-work/
+staging/
+vault/
+
+# Distribution & Packaging
+build/
+dist/
+*.spec
+
+# Backup and scratch files
+*.bak*
+*.tmp

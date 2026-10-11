@@ -1,0 +1,7 @@
+PySide6>=6.6
+huggingface_hub>=0.26
+reportlab>=4.0
+comtypes>=1.4
+keyring>=25.0
+httpx>=0.27
+pytest>=8.0

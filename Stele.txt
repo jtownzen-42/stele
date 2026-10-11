@@ -1,0 +1,279 @@
+Approved. Name **Stele**. Stack **Python 3.12 + PySide6 + IMAPI2**. Edition **Studio in v1** — Personal is a later SKU cut, not a reduced first build. Default profile **GGUF inference pack**, with Full repo, Inference pack, and Runtime kit as explicit choices. Burn **IMAPI2 + verify + ISO export**.
+
+Copy everything from the line below through the end of the acceptance tests. Paste it into Grok Build as a single prompt.
+
+---
+
+```
+Build Stele v1 Studio — a professional Windows desktop application that archives Hugging Face models (and curated runtimes) onto M-DISC optical media.
+
+PRODUCT
+Stele is a permanent Hugging Face → M-DISC archiver. Search the Hub, download complete file sets through a disciplined serial queue, generate a technical specification sheet and a how-to-use guide, optionally pack official runtimes (LM Studio, Ollama, llama.cpp), then burn a verified UDF M-DISC with printable labels, a machine-readable catalog, multi-disc spanning, and a restore script.
+
+Positioning: “Carve the model into stone.”
+Target OS: Windows 10/11 x64.
+Language/UI: English.
+This is the Studio feature set. Implement all of it in v1. Do not stub Studio features.
+
+NON-NEGOTIABLE RULES
+1. Only one model (or one runtime pack) is the active download job.
+2. Only one file transfers at a time. Never use huggingface_hub snapshot_download concurrency. Never set max_workers > 1. Implement downloads as sequential hf_hub_download (or equivalent HTTP Range) calls.
+3. A queue of many models/packs may sit behind the active job. User can reorder, pause, resume, cancel. Cancel does not delete finished files unless the user confirms “purge incomplete.”
+4. Never download and burn the same tree at the same time.
+5. Hugging Face token is stored only in Windows Credential Manager. Never write the token to disk, logs, manifests, PDFs, or discs.
+6. Show the model license and require an explicit Acknowledge click before queueing. Stele does not grant redistribution rights. Print that sentence on every spec sheet and README_FIRST.txt.
+7. Prefer official sources only for runtimes. Do not scrape mirrors.
+8. Do not execute downloaded installers. Archive them only.
+9. Working code, not pseudo-code. Runnable project with requirements.txt, README, and a launch script.
+
+STACK
+- Python 3.12
+- PySide6 (Qt 6) for the UI
+- huggingface_hub for Hub search, model_info, list_repo_files, hf_hub_download
+- SQLite (stdlib) catalog at %LOCALAPPDATA%\Stele\stele.db
+- ReportLab for PDF (also always write Markdown siblings)
+- comtypes or pywin32 for Windows IMAPI2 burn
+- keyring or win32cred for Credential Manager
+- httpx or requests only if needed besides huggingface_hub
+
+REPO LAYOUT
+stele/
+  README.md
+  requirements.txt
+  run_stele.bat
+  stele/
+    __init__.py
+    app.py                 # QApplication entry
+    paths.py               # vault / staging / catalog / logs
+    settings.py
+    credentials.py
+    db.py                  # SQLite schema + queries
+    models.py              # dataclasses
+    hub/
+      client.py            # HfApi wrappers
+      search.py
+      planner.py           # profile → file list + byte estimate
+    download/
+      queue.py             # persistent queue
+      worker.py            # ONE file at a time, resume, sha256
+    docs/
+      spec.py
+      howto.py
+      pdf.py
+      labels.py
+    runtime/
+      catalog.py           # frozen JSON manifest of official packs
+      manifest.json
+    burn/
+      imapi.py             # enumerate drives, media, burn, verify
+      span.py              # multi-disc file-boundary split
+      iso.py               # export UDF/ISO fallback
+      layout.py            # disc directory tree builder
+    restore/
+      restore_ps1.py       # generates RESTORE.ps1
+    ui/
+      main_window.py
+      pages/
+        discover.py
+        queue_page.py
+        library.py
+        burn_page.py
+        runtimes.py
+        settings_page.py
+  tests/
+    test_planner.py
+    test_span.py
+    test_layout.py
+    test_checksum.py
+
+DEFAULT PATHS (user-overridable)
+%USERPROFILE%\Stele\staging\
+%USERPROFILE%\Stele\vault\
+%LOCALAPPDATA%\Stele\stele.db
+%LOCALAPPDATA%\Stele\logs\
+
+DISC TREE (canonical — staging, vault, ISO, and burned disc must match)
+STELE/
+  README_FIRST.txt
+  ARCHIVE_MANIFEST.json
+  checksums.sha256
+  RESTORE.ps1
+  DOCS/
+    <org>--<repo>_spec.md
+    <org>--<repo>_spec.pdf
+    <org>--<repo>_howto.md
+    <org>--<repo>_howto.pdf
+    labels/
+      disc_face.pdf
+      case_insert.pdf
+  MODELS/
+    <org>--<repo>/
+      <revision>/
+        ...hub files preserving relative paths...
+        SOURCE.txt
+  RUNTIME/                         # optional
+    LMStudio/<version>/
+    Ollama/<version>/
+    llama.cpp/<tag>/
+
+DOWNLOAD PROFILES
+Default profile: “GGUF inference pack”
+- GGUF files the user selects (multi-select of listed .gguf), plus tokenizer/config/license/README when present
+- If the repo has no GGUF, fall back to “Inference pack” and say so clearly
+
+Other profiles:
+- Full repo — every file at the chosen revision
+- Inference pack — weights (safetensors or bin shards) + tokenizer + configs + license + README
+- Runtime kit only — no model
+
+Always preview file list + total bytes + estimated disc count before Add to Queue.
+
+HUB UI (Discover page)
+- Search box (repo id or keywords)
+- Filters: pipeline tag, library, license, gated/ungated, format present (GGUF / safetensors)
+- Result cards: repo id, author, last modified, approx size if known, gated badge
+- Detail pane: model card excerpt, license, file table (name, size), revision selector (default: main / latest commit SHA)
+- Token button: save / clear HF token via Credential Manager
+- Profile picker + “Add to Queue”
+
+QUEUE (Queue page)
+- Persistent SQLite-backed queue of jobs (models and runtime packs mixed)
+- One active job
+- Within the active job, files listed with status: pending / downloading / hashing / done / failed
+- Progress: filename, bytes, speed, ETA for current file AND remaining job bytes
+- Pause / Resume / Cancel job / Reorder queue / Retry failed file
+- Resume across app restart using partial files + Range + size/etag
+- SHA-256 every completed file. One automatic retry on hash mismatch. Then mark failed.
+- After a model job succeeds: generate docs, manifest fragment, checksums, SOURCE.txt, move or promote tree from staging → vault, record in catalog
+
+DOCUMENTS
+For each completed model generate:
+
+Technical specification
+- repo id, revision, commit SHA, snapshot UTC datetime
+- license name + short excerpt + “full license file is on this disc”
+- architecture / param count / context / vocab when parseable from config.json or card
+- file inventory: path, bytes, sha256
+- format notes (GGUF quants present, safetensors dtype)
+- rough RAM/VRAM bands by quant when inferable
+- hardware class hint (CPU, 8 GB, 12 GB, 24 GB)
+- redistribution disclaimer
+
+How-to-use guide
+- one-paragraph plain description
+- recommended runtime order by format (GGUF → LM Studio, then Ollama, then llama.cpp)
+- exact first-run steps for each recommended runtime
+- first verification prompt
+- limits (context, vision, tools, license)
+- restore-from-this-disc steps
+
+Also write ARCHIVE_MANIFEST.json covering every item on that disc (and volume index if spanned).
+
+RUNTIME CATALOG (ship a frozen manifest.json)
+Include at least:
+- LM Studio Windows installer — official lmstudio.ai download page / documented current installer URL pattern; store version, filename, sha256 if published, homepage, notes
+- Ollama Windows installer — official ollama.com / GitHub release; winget id Ollama.Ollama as a note, but download the official exe
+- llama.cpp official GitHub releases: Windows x64 CPU zip AND Windows x64 CUDA zip as two separate packs
+
+UI: list packs, show version + size, Recommend based on selected model format, Add to Queue (same serial downloader), Include on next burn checkbox.
+
+BURN (Burn page) — Studio complete
+- Enumerate IMAPI2 recorders
+- Show drive name, supported media, inserted media type, free bytes
+- Warn if DVD M-DISC write may require an M-DISC-aware drive; treat BD M-DISC as standard BD-R write with a note
+- Capacity math vs selected vault items
+- Options: include runtime packs yes/no, verify after burn yes (default on), close disc yes (default on), burn speed conservative (prefer 2x–4x)
+- Direct burn via IMAPI2 (MsftDiscMaster2, MsftDiscRecorder2, MsftFileSystemImage UDF, MsftDiscFormat2Data)
+- Export ISO / UDF image as first-class action (same layout as disc)
+- Progress + cancel if the API allows; otherwise disable UI and log honestly
+- After burn: read-back verify against checksums.sha256 (full if feasible; otherwise every file under 64 MB plus a sliding sample of large files, and document which mode ran)
+- Record burn result, disc id, drive, media type, verify status in SQLite
+
+MULTI-DISC SPANNING (required)
+- Never split a single file across discs
+- Pack files largest-first or best-fit into volumes given usable capacity (leave 32 MB headroom)
+- Each volume gets:
+  DISC n OF m on README_FIRST, labels, and ARCHIVE_MANIFEST.json
+  its own checksums.sha256 for files on that volume
+  a copy of RESTORE.ps1 and the docs for models that appear on that volume
+  VOLUME.json listing sibling volumes and which paths live where
+- UI wizard: insert disc n, burn, eject prompt, insert n+1
+- If a single file exceeds one blank’s capacity, refuse that file for this media and tell the user to use larger media or Export ISO to hard disk
+
+LABELS
+- disc_face.pdf: product mark “STELE”, model id(s), short commit, date, “DISC n OF m”, “M-DISC ARCHIVE”
+- case_insert.pdf: spec summary, license name, checksum short list (first 12 chars), restore one-liner
+Keep typography calm, high contrast, print-ready US Letter and a 120 mm disc-face circle guide.
+
+LIBRARY
+- Catalog of completed vault items and past burns
+- Search/filter: name, license, format, date, disc id, verify status
+- Open folder, regenerate docs, add to burn set, export ISO
+
+SETTINGS
+- Vault and staging paths
+- Default profile
+- Default burn speed / always verify
+- HF token save/clear
+- Log folder
+
+RESTORE.ps1 (generated onto every disc)
+- Param: Destination folder
+- Copies MODELS and DOCS (and RUNTIME if present) from the disc to Destination
+- Prints next steps for LM Studio (point at GGUF folder), Ollama (note that GGUF import varies), llama.cpp (example -m path)
+- Never requires network
+
+UI CHROME
+- One main window, five sections in a left nav: Discover, Queue, Library, Burn, Runtimes. Settings as gear.
+- Professional, quiet, high-contrast. No cartoon icons. No Electron look.
+- Long operations never freeze the UI (QThread or QProcess workers).
+- Status bar: active filename, rate, remaining.
+
+ERROR HANDLING
+- Gated repo without token: stop with a clear panel, do not spin.
+- 401/403: same.
+- Disk full: stop before starting the next file.
+- Drive tray empty / wrong media: Burn page instructions, do not crash.
+- IMAPI2 failure: keep the vault intact, offer Export ISO, log COM error text.
+
+README.md MUST INCLUDE
+- What Stele is
+- Install: python 3.12, python -m venv .venv, pip install -r requirements.txt, run_stele.bat
+- First-run folder creation
+- How token works
+- How to burn and how ISO fallback works
+- License disclaimer
+- Known limits (IMAPI2 on some USB enclosures)
+
+ACCEPTANCE TESTS FOR V1 STUDIO
+A. Search “Qwen/Qwen2.5-7B-Instruct” (or any public GGUF repo if that id 404s), list files, estimate size.
+B. Queue GGUF inference pack. Observe exactly one file downloading. Pause. Quit. Relaunch. Resume.
+C. Completed job produces spec.md/pdf, howto.md/pdf, checksums, SOURCE.txt, catalog row.
+D. Queue LM Studio pack through the same worker. Still one file at a time. Installer is not executed.
+E. Add two models to the queue. Second does not start until the first job is finished or cancelled.
+F. Burn page sees a recorder (or shows “no drive” cleanly). Export ISO of a small completed vault item. ISO tree matches canonical layout.
+G. Span planner: given a fake 4.7 GB capacity and files that exceed it, produces 2+ volumes with no file split, each with VOLUME.json and DISC n OF m.
+H. Labels PDFs generate without a physical printer.
+I. Token never appears in logs or disc files (unit test a redaction helper).
+J. App starts on a clean Windows profile and creates its folders.
+
+IMPLEMENTATION ORDER (do this order in the repo)
+1. paths, settings, db, empty main window with five pages
+2. Hub search + planner + file preview
+3. Serial downloader + checksum + resume + queue persistence
+4. Docs + labels + manifest + restore script
+5. Runtime catalog + same downloader
+6. Layout builder + span planner + ISO export
+7. IMAPI2 burn + verify
+8. Library search + polish + README
+
+Write real modules, real types, and real error messages. If an IMAPI2 call cannot be fully exercised in this environment, still implement the wrapper with a dry-run mode and keep ISO export working.
+
+Start by creating the project skeleton and the download worker. Then fill the rest until the acceptance list is covered.
+```
+
+---
+
+Paste that as one prompt. If Grok Build stops mid-slice, send: `Continue Stele from the last completed module. Do not weaken the one-file-at-a-time rule. Next slice only.`
+
+When the first build lands on the Ghost Rig, the first physical check is the queue: one file on the wire, pause, quit, resume. If that holds, the rest of Studio is finish work. It’s a good thing.

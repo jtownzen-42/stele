@@ -1,0 +1,75 @@
+{
+  "packs": [
+    {
+      "id": "lmstudio",
+      "display": "LM Studio",
+      "folder": "LMStudio",
+      "version": "0.4.25-1",
+      "filename": "LM-Studio-0.4.25-1-x64.exe",
+      "url": "https://lmstudio.ai/download/latest/win32/x64",
+      "size": null,
+      "sha256": null,
+      "homepage": "https://lmstudio.ai/download",
+      "license_name": "LM Studio terms",
+      "notes": "Official Windows installer. URL pattern https://lmstudio.ai/download/latest/win32/x64, which currently redirects to installers.lmstudio.ai for 0.4.25-1. Archive only. Stele does not execute this installer. sha256 is not published on the download page.",
+      "allow": ["lmstudio.ai"]
+    },
+    {
+      "id": "ollama",
+      "display": "Ollama",
+      "folder": "Ollama",
+      "version": "0.34.4",
+      "filename": "OllamaSetup.exe",
+      "url": "https://github.com/ollama/ollama/releases/download/v0.34.4/OllamaSetup.exe",
+      "size": 1571115536,
+      "sha256": "4a6514323eb8c131f6c8bb651b4fe2edf5f1525f4fd8b84315ba20f1af3e210f",
+      "homepage": "https://ollama.com",
+      "license_name": "MIT",
+      "notes": "Official Windows installer from the ollama/ollama GitHub release. winget id Ollama.Ollama is a note only; Stele does not call winget and does not execute the installer.",
+      "allow": [
+        "github.com",
+        "objects.githubusercontent.com",
+        "release-assets.githubusercontent.com",
+        "github-releases.githubusercontent.com"
+      ]
+    },
+    {
+      "id": "llama-cpp-cpu",
+      "display": "llama.cpp Windows x64 CPU",
+      "folder": "llama.cpp",
+      "version": "b11146",
+      "filename": "llama-b11146-bin-win-cpu-x64.zip",
+      "url": "https://github.com/ggml-org/llama.cpp/releases/download/b11146/llama-b11146-bin-win-cpu-x64.zip",
+      "size": 18560055,
+      "sha256": "14cf1303ca9ac3abd94816850532f9f9a69ac66fbaca3776fc6f9061c2fac1d1",
+      "homepage": "https://github.com/ggml-org/llama.cpp",
+      "license_name": "MIT",
+      "notes": "Official ggml-org/llama.cpp Windows x64 CPU zip from GitHub release b11146 (the build attached to llama.cpp v0.5.0). Archive only.",
+      "allow": [
+        "github.com",
+        "objects.githubusercontent.com",
+        "release-assets.githubusercontent.com",
+        "github-releases.githubusercontent.com"
+      ]
+    },
+    {
+      "id": "llama-cpp-cuda",
+      "display": "llama.cpp Windows x64 CUDA",
+      "folder": "llama.cpp",
+      "version": "b11146",
+      "filename": "llama-b11146-bin-win-cuda-12.4-x64.zip",
+      "url": "https://github.com/ggml-org/llama.cpp/releases/download/b11146/llama-b11146-bin-win-cuda-12.4-x64.zip",
+      "size": 253869799,
+      "sha256": "3c806a6ceccc3dae1c743ceb1a1fb2cce5b76f40bfbd4c6b7b8afb6ef45a5807",
+      "homepage": "https://github.com/ggml-org/llama.cpp",
+      "license_name": "MIT",
+      "notes": "Official ggml-org/llama.cpp Windows x64 CUDA 12.4 zip from GitHub release b11146. Separate pack from the CPU zip. Archive only.",
+      "allow": [
+        "github.com",
+        "objects.githubusercontent.com",
+        "release-assets.githubusercontent.com",
+        "github-releases.githubusercontent.com"
+      ]
+    }
+  ]
+}
