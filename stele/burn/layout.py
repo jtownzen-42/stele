@@ -87,6 +87,7 @@ def build_disc_set(
     capacity_bytes: int,
     created_utc: str,
     set_id: str | None = None,
+    studio_name: str = "STELE",
 ) -> list[Path]:
     """Write `volume_XX/STELE/` trees. Returns each STELE directory.
 
@@ -156,6 +157,7 @@ def build_disc_set(
             when=created_utc[:10],
             volume=volume.index,
             count=count,
+            studio_name=studio_name,
         )
         write_case_insert(
             docs / "labels" / "case_insert.pdf",
@@ -163,6 +165,7 @@ def build_disc_set(
             license_name=models_here[0].license_name if models_here else "vendor terms",
             summary=summary,
             checksum_prefixes=prefixes,
+            studio_name=studio_name,
         )
         write_restore_script(root / "RESTORE.ps1")
         (root / "README_FIRST.txt").write_text(

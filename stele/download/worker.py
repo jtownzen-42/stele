@@ -22,7 +22,7 @@ log = logging.getLogger("stele.download")
 
 _SHA256 = re.compile(r"^[0-9a-fA-F]{64}$")
 CHUNK = 1024 * 1024
-NETWORK_TRIES = 3
+NETWORK_TRIES = 5
 
 
 class TransferError(Exception):
@@ -440,6 +440,20 @@ class DownloadWorker:
 
         return check
 
+    def _backoff_sleep(self, attempt: int, filename: str, thread, job_id: int) -> None:
+        """Cooperative exponential backoff sleeping in small increments while checking stop/pause."""
+        delay = min(30.0, (1.5 ** attempt) * 2.0)
+        thread.message.emit(
+            f"Network retry for {filename} in {delay:.1f}s (attempt {attempt + 1}/{NETWORK_TRIES})..."
+        )
+        stop_fn = self._stop_check(job_id)
+        deadline = time.monotonic() + delay
+        while time.monotonic() < deadline:
+            how = stop_fn()
+            if how:
+                raise Cancelled(how)
+            time.sleep(min(0.25, max(0.01, deadline - time.monotonic())))
+
     def _one_file(self, thread, job: dict, file_row: dict) -> None:
         from stele.credentials import get_token
 
@@ -511,15 +525,18 @@ class DownloadWorker:
                 last_error = str(exc)
                 if exc.kind in ("auth", "disk", "source"):
                     raise
-                log.warning("network attempt %s for %s failed", attempt + 1, filename)
+                log.warning("network attempt %s for %s failed: %s", attempt + 1, filename, exc)
                 if attempt + 1 >= NETWORK_TRIES:
                     raise TransferError(last_error) from exc
+                self._backoff_sleep(attempt, filename, thread, job_id)
             except Exception as exc:
                 if _win_disk_full(exc):
                     raise DiskFull() from exc
                 last_error = str(exc)
+                log.warning("unexpected error on attempt %s for %s: %s", attempt + 1, filename, exc)
                 if attempt + 1 >= NETWORK_TRIES:
                     raise TransferError(last_error) from exc
+                self._backoff_sleep(attempt, filename, thread, job_id)
 
         self._hash_and_finish(thread, job, file_id, dest, relative)
 

@@ -18,11 +18,13 @@ def write_disc_face(
     when: str,
     volume: int,
     count: int,
+    studio_name: str = "STELE",
 ) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     page = 140 * mm
     c = canvas.Canvas(str(path), pagesize=(page, page))
-    c.setTitle("Stele disc face")
+    branding = (studio_name or "STELE").strip().upper()
+    c.setTitle(f"{branding} disc face")
     cx = cy = page / 2
     radius = 60 * mm
     c.setStrokeColorRGB(0.11, 0.09, 0.09)
@@ -30,8 +32,9 @@ def write_disc_face(
     c.setLineWidth(1.2)
     c.circle(cx, cy, radius, stroke=1, fill=1)
     c.setFillColorRGB(0.11, 0.09, 0.09)
-    c.setFont("Times-Bold", 18)
-    c.drawCentredString(cx, cy + 28 * mm, "STELE")
+    font_size = 18 if len(branding) <= 12 else max(10, int(200 / len(branding)))
+    c.setFont("Times-Bold", font_size)
+    c.drawCentredString(cx, cy + 28 * mm, branding)
     c.setFont("Times-Roman", 9)
     y = cy + 16 * mm
     for model_id in model_ids[:4]:
@@ -55,15 +58,18 @@ def write_case_insert(
     license_name: str,
     summary: str,
     checksum_prefixes: list[str],
+    studio_name: str = "STELE",
 ) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     c = canvas.Canvas(str(path), pagesize=(612, 792))
-    c.setTitle("Stele case insert")
+    branding = (studio_name or "STELE").strip().upper()
+    c.setTitle(f"{branding} case insert")
     c.setFillColorRGB(0.98, 0.98, 0.97)
     c.rect(0, 0, 612, 792, stroke=0, fill=1)
     c.setFillColorRGB(0.11, 0.09, 0.09)
-    c.setFont("Times-Bold", 22)
-    c.drawString(54, 740, "STELE")
+    font_size = 22 if len(branding) <= 12 else max(12, int(250 / len(branding)))
+    c.setFont("Times-Bold", font_size)
+    c.drawString(54, 740, branding)
     c.setFont("Times-Roman", 11)
     c.drawString(54, 716, "M-DISC ARCHIVE")
     c.setFont("Times-Bold", 12)

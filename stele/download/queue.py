@@ -317,6 +317,7 @@ class Queue:
             when=spec.snapshot_utc[:10],
             volume=1,
             count=1,
+            studio_name=self.settings.studio_name(),
         )
         write_case_insert(
             docs_dir / f"{safe}_case_insert.pdf",
@@ -324,6 +325,7 @@ class Queue:
             license_name=spec.license_name,
             summary=spec.summary_line(),
             checksum_prefixes=[item["sha256"][:12] for item in inventory if item["sha256"]][:12],
+            studio_name=self.settings.studio_name(),
         )
         formats = spec.format_tags
         self.db.insert_catalog(

@@ -44,7 +44,6 @@ vault/
 # Distribution & Packaging
 build/
 dist/
-*.spec
 
 # Backup and scratch files
 *.bak*

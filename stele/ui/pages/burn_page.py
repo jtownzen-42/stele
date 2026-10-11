@@ -258,8 +258,15 @@ class BurnPage(QWidget):
                         size=int(pack.get("size") or 0),
                     )
                 )
-        work = self.window.settings.burn_work() / utc_now().replace(":", "")
-        return build_disc_set(work, payload, models, runtimes, int(snap["capacity"]), utc_now())
+        return build_disc_set(
+            work,
+            payload,
+            models,
+            runtimes,
+            int(snap["capacity"]),
+            utc_now(),
+            studio_name=self.window.settings.studio_name(),
+        )
 
     def export_iso(self) -> None:
         if self._guard_busy():

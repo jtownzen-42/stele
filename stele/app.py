@@ -26,6 +26,13 @@ def configure_logging() -> None:
 
 
 def main() -> int:
+    if "--smoke" in sys.argv:
+        print("Stele smoke test OK")
+        return 0
+    if "--version" in sys.argv:
+        print("Stele Studio 1.0.0")
+        return 0
+
     os.environ["HF_HUB_ENABLE_HF_TRANSFER"] = "0"
     os.environ.setdefault("HF_HUB_DISABLE_XET", "1")
     configure_logging()

@@ -83,9 +83,9 @@ class MainWindow(QMainWindow):
         side_layout = QVBoxLayout(side)
         side_layout.setContentsMargins(0, 0, 0, 0)
         side_layout.setSpacing(0)
-        mark = QLabel("STELE")
-        mark.setStyleSheet("background: #0c0a09; color: #fafaf9; padding: 16px 18px; font-size: 16px;")
-        side_layout.addWidget(mark)
+        self.mark = QLabel("STELE")
+        self.mark.setStyleSheet("background: #0c0a09; color: #fafaf9; padding: 16px 18px; font-size: 16px;")
+        side_layout.addWidget(self.mark)
         self.nav = QListWidget()
         self.nav.setObjectName("nav")
         for name in NAV:
@@ -130,7 +130,21 @@ class MainWindow(QMainWindow):
             self.worker.thread.message.connect(self._status.setText)
             self.worker.start()
 
+        self.update_license_display()
         self.nav.setCurrentRow(0)
+
+    def update_license_display(self) -> None:
+        from stele.license import is_activated, license_info
+        if is_activated(self.db):
+            info = license_info(self.db)
+            status_text = info.get("status") or "Licensed"
+            self.setWindowTitle(f"Stele Studio [{status_text}]")
+            self.mark.setText("STELE STUDIO")
+            self.mark.setStyleSheet("background: #0c0a09; color: #d97706; padding: 16px 18px; font-size: 15px; font-weight: bold;")
+        else:
+            self.setWindowTitle("Stele [Unactivated]")
+            self.mark.setText("STELE")
+            self.mark.setStyleSheet("background: #0c0a09; color: #fafaf9; padding: 16px 18px; font-size: 16px;")
 
     def nav_labels(self) -> list[str]:
         return [self.nav.item(i).text() for i in range(self.nav.count())]

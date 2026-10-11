@@ -18,6 +18,7 @@ KEY_CAPACITY = "capacity_preset"
 KEY_CAPACITY_CUSTOM = "capacity_custom_bytes"
 KEY_BURN_RUNTIMES = "burn_runtime_ids"
 KEY_LAST_FORMAT = "last_model_format"
+KEY_BRANDING = "branding_studio_name"
 
 
 class Settings:
@@ -103,6 +104,12 @@ class Settings:
 
     def set_last_format(self, fmt: str) -> None:
         self.db.set_setting(KEY_LAST_FORMAT, fmt)
+
+    def studio_name(self) -> str:
+        return self.db.get_setting(KEY_BRANDING) or "STELE"
+
+    def set_studio_name(self, name: str) -> None:
+        self.db.set_setting(KEY_BRANDING, name.strip() or "STELE")
 
     def ensure(self) -> None:
         for path in (self.staging(), self.vault(), self.log_dir(), self.burn_work()):

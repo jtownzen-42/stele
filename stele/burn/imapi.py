@@ -57,7 +57,14 @@ class ImapiError(Exception):
 
 
 def _create(progid: str):
+    import sys
+    import tempfile
     import comtypes.client
+
+    if getattr(sys, "frozen", False):
+        gen = Path(tempfile.gettempdir()) / "stele_comtypes_gen"
+        gen.mkdir(parents=True, exist_ok=True)
+        comtypes.client.gen_dir = str(gen)
 
     return comtypes.client.CreateObject(progid)
 

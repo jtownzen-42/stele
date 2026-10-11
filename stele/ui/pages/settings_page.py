@@ -50,6 +50,15 @@ class SettingsPage(QWidget):
         form.addRow("", self.verify)
         self.token = QLabel()
         form.addRow("Hugging Face token", self.token)
+        self.license_status = QLabel()
+        form.addRow("License status", self.license_status)
+        self.license_key = QLineEdit()
+        self.license_key.setPlaceholderText("Enter Gumroad license key or STELE-STUDIO-... offline key")
+        self.license_key.setEchoMode(QLineEdit.EchoMode.PasswordEchoOnEdit)
+        form.addRow("License key", self.license_key)
+        self.studio_name = QLineEdit()
+        self.studio_name.setPlaceholderText("Organization or Studio Name (Default: STELE)")
+        form.addRow("Disc & Label branding", self.studio_name)
         root.addLayout(form)
         row = QHBoxLayout()
         save = QPushButton("Save")
@@ -60,10 +69,16 @@ class SettingsPage(QWidget):
         token_save.clicked.connect(self._save_token)
         token_clear = QPushButton("Clear token")
         token_clear.clicked.connect(self._clear_token)
+        license_activate = QPushButton("Activate license")
+        license_activate.clicked.connect(self._activate_license)
+        license_deactivate = QPushButton("Deactivate license")
+        license_deactivate.clicked.connect(self._deactivate_license)
         logs = QPushButton("Open log folder")
         logs.clicked.connect(self._logs)
         row.addWidget(token_save)
         row.addWidget(token_clear)
+        row.addWidget(license_activate)
+        row.addWidget(license_deactivate)
         row.addWidget(logs)
         row.addStretch(1)
         root.addLayout(row)
@@ -72,6 +87,20 @@ class SettingsPage(QWidget):
 
     def refresh(self) -> None:
         self.token.setText(token_status())
+        self._refresh_license()
+
+    def _refresh_license(self) -> None:
+        from stele.license import license_info
+        info = license_info(self.window.db)
+        if info["is_active"] == "Yes":
+            email_part = f" ({info['email']})" if info["email"] else ""
+            self.license_status.setText(f"Active: {info['status']}{email_part}")
+            self.license_status.setStyleSheet("color: #22c55e; font-weight: 600;")
+        else:
+            self.license_status.setText("Unactivated (Trial)")
+            self.license_status.setStyleSheet("color: #d97706;")
+        if info.get("key_masked"):
+            self.license_key.setPlaceholderText(f"Current: {info['key_masked']}")
 
     def load(self) -> None:
         settings = self.window.settings
@@ -86,6 +115,33 @@ class SettingsPage(QWidget):
         self.speed.setValue(settings.burn_speed())
         self.verify.setChecked(settings.always_verify())
         self.token.setText(token_status())
+        self.studio_name.setText(settings.studio_name())
+        self._refresh_license()
+
+    def _activate_license(self) -> None:
+        from stele.license import activate_license
+        key = self.license_key.text().strip()
+        if not key:
+            self.license_status.setText("Please enter a license key.")
+            self.license_status.setStyleSheet("color: #ef4444;")
+            return
+        success, msg = activate_license(key, self.window.db)
+        if success:
+            self.license_key.clear()
+            self._refresh_license()
+            if hasattr(self.window, "update_license_display"):
+                self.window.update_license_display()
+        else:
+            self.license_status.setText(f"Activation failed: {msg}")
+            self.license_status.setStyleSheet("color: #ef4444;")
+
+    def _deactivate_license(self) -> None:
+        from stele.license import deactivate_license
+        deactivate_license(self.window.db)
+        self.license_key.clear()
+        self._refresh_license()
+        if hasattr(self.window, "update_license_display"):
+            self.window.update_license_display()
 
     def _save(self) -> None:
         settings = self.window.settings
@@ -106,6 +162,7 @@ class SettingsPage(QWidget):
             settings.set_custom_capacity(custom_bytes)
         settings.set_burn_speed(self.speed.value())
         settings.set_always_verify(self.verify.isChecked())
+        settings.set_studio_name(self.studio_name.text())
         settings.ensure()
 
     def _save_token(self) -> None:
