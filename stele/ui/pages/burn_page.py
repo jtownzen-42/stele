@@ -340,6 +340,8 @@ class BurnPage(QWidget):
     def burn(self) -> None:
         if self._guard_busy():
             return
+        if not self._pro_allowed("burn"):
+            return
         drive = self._current_drive()
         if drive is None or not drive.get("id"):
             self.media.setText(MSG_NO_DRIVE)
@@ -360,8 +362,27 @@ class BurnPage(QWidget):
 
         self._run(work, self._planned)
 
+    def _pro_allowed(self, feature: str) -> bool:
+        """Free tier: ISO export only. Burning and spanning need Pro."""
+        from stele.license import FeatureLocked, refresh_license, require_pro
+
+        try:
+            require_pro(self.window.db, feature)
+            return True
+        except FeatureLocked as exc:
+            # One quiet re-check in case the licence was verified long ago and Gumroad is reachable.
+            pro, _ = refresh_license(self.window.db)
+            if pro:
+                return True
+            self._log(str(exc))
+            QMessageBox.information(self, "Stele Pro", str(exc))
+            return False
+
     def _planned(self, roots: list[Path]) -> None:
         self._set_busy(False)
+        if len(roots) > 1 and not self._pro_allowed("span"):
+            self._volumes = []
+            return
         self._volumes = list(roots)
         self._volume_index = 0
         count = len(roots)
@@ -374,6 +395,8 @@ class BurnPage(QWidget):
             self._log("This set spans discs. Burn disc 1, then follow the eject prompt.")
 
     def _burn_current(self) -> None:
+        if not self._pro_allowed("burn"):
+            return
         if self._volume_index >= len(self._volumes):
             return
         drive = self._current_drive()

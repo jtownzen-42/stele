@@ -181,11 +181,11 @@ class MainWindow(QMainWindow):
         from stele.license import is_activated, license_info
         if is_activated(self.db):
             status_text = license_info(self.db).get("status") or "Licensed"
-            self.setWindowTitle(f"Stele Studio [{status_text}]")
+            self.setWindowTitle(f"Stele [{status_text}]")
             self.edition.setText(status_text)
         else:
-            self.setWindowTitle("Stele [Unactivated]")
-            self.edition.setText("Unactivated")
+            self.setWindowTitle("Stele [Free]")
+            self.edition.setText("Free")
 
     def _set_heading(self, index: int) -> None:
         title, subtitle = PAGE_INFO[index]
