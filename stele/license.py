@@ -43,8 +43,8 @@ TIER_FREE = "Free"
 TIER_PRO = "Pro"
 
 # Gumroad "product_id" for the Pro product. It is an identifier, not a secret. It is filled in by the
-# release owner; STELE_GUMROAD_PRODUCT_ID overrides it. While empty, activation fails closed.
-GUMROAD_PRODUCT_ID = ""
+# release owner (Stele Pro, permalink varuz); STELE_GUMROAD_PRODUCT_ID overrides it. If empty, activation fails closed.
+GUMROAD_PRODUCT_ID = "nyqJsy-BD6Tnu2XO62Tnvw=="
 GUMROAD_VERIFY_URL = "https://api.gumroad.com/v2/licenses/verify"
 
 GRACE_DAYS = 14
