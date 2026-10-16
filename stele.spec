@@ -6,6 +6,7 @@ block_cipher = None
 
 datas = [
     ('stele/runtime/manifest.json', 'stele/runtime'),
+    ('stele/ui/assets', 'stele/ui/assets'),
 ]
 
 datas += collect_data_files('reportlab')
@@ -42,6 +43,14 @@ a = Analysis(
     cipher=block_cipher,
     noarchive=False,
 )
+
+# Qt 6.11 on Windows uses the OS ICU API. An unrelated ICU from a
+# tool's PATH (for example Poppler) exports versioned symbols and prevents
+# QtWidgets from loading. Leave these OS dependencies to Windows.
+a.binaries = [entry for entry in a.binaries
+              if entry[0].lower() != 'icuuc.dll'
+              and not (entry[0].lower().startswith('icudt')
+                       and entry[0].lower().endswith('.dll'))]
 
 pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 

@@ -27,7 +27,15 @@ def configure_logging() -> None:
 
 def main() -> int:
     if "--smoke" in sys.argv:
-        print("Stele smoke test OK")
+        from PySide6.QtWidgets import QApplication
+        from stele.ui.main_window import MainWindow
+
+        # Load the native Qt platform plugin and all UI imports without
+        # opening a vault, starting downloads or probing optical hardware.
+        app = QApplication(["Stele", "--smoke"])
+        app.setStyle("Fusion")
+        print("Stele smoke test OK (Qt and UI imports loaded)")
+        app.quit()
         return 0
     if "--version" in sys.argv:
         print("Stele Studio 1.0.0")

@@ -258,6 +258,7 @@ class BurnPage(QWidget):
                         size=int(pack.get("size") or 0),
                     )
                 )
+        work = self.window.settings.burn_work() / utc_now().replace(":", "")
         return build_disc_set(
             work,
             payload,
