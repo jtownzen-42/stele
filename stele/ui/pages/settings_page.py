@@ -79,6 +79,9 @@ class SettingsPage(QWidget):
         row.addWidget(token_clear)
         row.addWidget(license_activate)
         row.addWidget(license_deactivate)
+        about = QPushButton("About and licenses")
+        about.clicked.connect(self._about)
+        row.addWidget(about)
         row.addWidget(logs)
         row.addStretch(1)
         root.addLayout(row)
@@ -117,6 +120,11 @@ class SettingsPage(QWidget):
         self.token.setText(token_status())
         self.studio_name.setText(settings.studio_name())
         self._refresh_license()
+
+    def _about(self) -> None:
+        from stele.ui.legal_dialogs import AboutDialog
+
+        AboutDialog(self.window.db, self).exec()
 
     def _activate_license(self) -> None:
         from stele.license import activate_license

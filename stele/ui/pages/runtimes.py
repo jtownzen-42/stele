@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
+    QCheckBox,
     QHBoxLayout,
     QLabel,
     QMessageBox,
@@ -14,6 +15,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from stele.legal import LMSTUDIO_NOTICE, lmstudio_enabled, set_lmstudio_optin, visible_packs
 from stele.models import human_bytes
 from stele.runtime.catalog import load_packs, recommend
 
@@ -22,7 +24,8 @@ class RuntimesPage(QWidget):
     def __init__(self, window) -> None:
         super().__init__()
         self.window = window
-        self.packs = list(load_packs())
+        self.all_packs = list(load_packs())
+        self.packs = visible_packs(window.db, self.all_packs)
         root = QVBoxLayout(self)
         root.setContentsMargins(16, 16, 16, 16)
         self.recommend_label = QLabel("")
@@ -32,6 +35,10 @@ class RuntimesPage(QWidget):
         note.setObjectName("muted")
         note.setWordWrap(True)
         root.addWidget(note)
+        self.lmstudio = QCheckBox("Show LM Studio (third-party terms apply)")
+        self.lmstudio.setChecked(lmstudio_enabled(window.db))
+        self.lmstudio.clicked.connect(self._lmstudio_toggled)
+        root.addWidget(self.lmstudio)
         self.table = QTableWidget(0, 5)
         self.table.setHorizontalHeaderLabels(["Include", "Pack", "Version", "Size", "File"])
         self.table.itemChanged.connect(self._toggle)
@@ -47,6 +54,18 @@ class RuntimesPage(QWidget):
         row.addWidget(add)
         row.addStretch(1)
         root.addLayout(row)
+        self._fill()
+
+    def _lmstudio_toggled(self, checked: bool) -> None:
+        if checked:
+            answer = QMessageBox.question(
+                self, "LM Studio", LMSTUDIO_NOTICE + "\n\nShow LM Studio?",
+            )
+            if answer != QMessageBox.StandardButton.Yes:
+                self.lmstudio.setChecked(False)
+                return
+        set_lmstudio_optin(self.window.db, checked)
+        self.packs = visible_packs(self.window.db, self.all_packs)
         self._fill()
 
     def refresh(self) -> None:
@@ -105,6 +124,8 @@ class RuntimesPage(QWidget):
         pack = self._selected_pack()
         if pack is None:
             QMessageBox.information(self, "Stele", "Select a pack first.")
+            return
+        if pack["id"] == "lmstudio" and not lmstudio_enabled(self.window.db):
             return
         self.notes.setText(pack.get("notes") or "")
         self.window.queue.enqueue_runtime(pack)

@@ -1,0 +1,62 @@
+STELE END USER LICENSE AGREEMENT
+Version 1 (draft for review by the seller before release)
+
+Stele ("the Software") is published by Alexx Forge ("we", "us"). By clicking Accept, installing or using
+the Software you agree to this agreement. If you do not agree, do not use the Software.
+
+1. EDITIONS
+   Free: search, download, documentation and ISO export. No payment is needed.
+   Pro: everything in Free plus disc burning and multi-disc spanning. Pro is a one-time purchase (US$29
+   at the time of writing) sold through Gumroad. A Pro licence key unlocks Pro on your computers as
+   described in section 3. Which features belong to which edition may be described on the product page.
+
+2. LICENCE
+   We grant you a personal, non-exclusive, non-transferable licence to install and use the Software.
+   Free may be used by anyone. Pro may be used by the person or organisation named on the Gumroad
+   purchase, on computers they own or control.
+   You may not: copy or redistribute the Software or a Pro licence key; sell, rent, lend or sublicense it;
+   share a key publicly; remove or bypass the licence check; or reverse engineer the Software except
+   where the law gives you that right despite this restriction. Open-source components keep their own
+   licences (see THIRD_PARTY_NOTICES.txt); nothing here limits your rights under those licences.
+
+3. ACTIVATION AND VERIFICATION
+   Activating Pro sends your licence key to Gumroad to confirm it is valid. Stele keeps the result on your
+   computer and re-checks it when it can. If Gumroad cannot be reached, Pro keeps working for 14 days after
+   the last successful check, after which Stele needs one online check. A key that has been refunded,
+   charged back or disputed stops unlocking Pro at the next check.
+
+4. YOUR DATA AND THIRD-PARTY CONTENT
+   Stele stores its catalogue, settings and downloaded files on your computer. Stele connects to the
+   internet to search and download models and files from sources you choose (for example Hugging Face)
+   and to verify licences. Models, datasets and software you download are owned by their authors and are
+   licensed under their own terms, which you must follow. Stele asks you to acknowledge a model's licence
+   before it queues a download; that acknowledgment is your statement that you have read it. We do not
+   review, host or guarantee any third-party content. Optional third-party software, such as LM Studio,
+   is offered only if you turn it on and is covered by its own terms.
+
+5. NO WARRANTY
+   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING
+   WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT. We do not
+   promise that the Software is error-free, that a burned disc will be readable in the future, or that
+   an archive will be complete. Optical media can fail. Verify your discs and keep more than one copy of
+   anything you cannot afford to lose.
+
+6. LIMIT OF LIABILITY
+   To the fullest extent the law allows, we are not liable for lost data, lost profits or indirect,
+   incidental or consequential damages arising from the Software. Our total liability for any claim
+   is limited to the amount you paid for the Software (zero for Free). Some places do not allow these
+   limits; where that is so, they apply only as far as the law permits.
+
+7. REFUNDS AND SUPPORT
+   Refund requests are handled through Gumroad under the refund policy shown on the Stele Pro product
+   page. For help, reply to your Gumroad receipt email or use the contact options on
+   https://forgealex0.gumroad.com. A refunded purchase ends your Pro licence.
+
+8. UPDATES AND ENDING THIS AGREEMENT
+   We may change the Software and, for future versions, this agreement. You may stop using the Software
+   at any time and delete it. We may end your licence if you break this agreement; then you must stop
+   using the Software and delete your copies. Sections 2, 5, 6 and 9 survive.
+
+9. GENERAL
+   This is the whole agreement about the Software. If a part is unenforceable, the rest stays in force.
+   Not using a right is not giving it up. Your local consumer-protection rights are not affected.

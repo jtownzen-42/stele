@@ -1,0 +1,36 @@
+STELE THIRD-PARTY NOTICES
+
+Stele is built on the open-source components below. Each keeps its own licence and copyright. Nothing in
+the Stele End User Licence Agreement reduces your rights under those licences. Licence texts for the
+packages bundled in a release are included with the release (see each package's dist-info LICENSE file).
+
+QT AND PYSIDE6 (Qt for Python)   LGPL-3.0 (also available as GPL-3.0 or commercial)
+   The user interface uses Qt for Python (PySide6) and the Qt libraries, copyright The Qt Company Ltd.
+   and other contributors, used under the GNU Lesser General Public License v3.0.
+   Stele ships as a one-folder application, so the Qt libraries are separate files that you may replace
+   with a compatible build of your own. Source code and licence text: https://code.qt.io and
+   https://www.gnu.org/licenses/lgpl-3.0.html . Stele does not modify Qt.
+
+huggingface_hub   Apache-2.0   (c) Hugging Face, Inc.   https://github.com/huggingface/huggingface_hub
+httpx             BSD-3-Clause (c) Encode OSS Ltd.      https://github.com/encode/httpx
+                  and its dependencies, including httpcore, h11, anyio, idna, sniffio (BSD or MIT) and
+                  certifi (MPL-2.0, https://github.com/certifi/python-certifi).
+ReportLab         BSD-3-Clause (open-source edition)    https://www.reportlab.com/opensource/
+keyring           MIT           (c) Jason R. Coombs and contributors   https://github.com/jaraco/keyring
+comtypes          MIT           (c) Thomas Heller and contributors     https://github.com/enthought/comtypes
+Python            PSF License   (c) Python Software Foundation        https://docs.python.org/3/license.html
+PyInstaller       GPL-2.0-or-later with the bootloader exception, which permits the packaged application to
+                  be distributed under its own licence. https://pyinstaller.org
+
+OPTIONAL RUNTIME PACKS (downloaded by you, archived and never run by Stele)
+   Ollama            MIT       https://github.com/ollama/ollama
+   llama.cpp         MIT       https://github.com/ggml-org/llama.cpp
+   LM Studio         Proprietary, governed by the LM Studio terms at https://lmstudio.ai . Off by default;
+                     shown only after you opt in and acknowledge those terms. Stele does not bundle,
+                     modify or run LM Studio.
+
+MODELS AND DATASETS
+   Models and datasets you download are not part of Stele. Each has its own licence, shown to you and
+   acknowledged before download, and recorded with the job.
+
+Trademarks belong to their owners. Their use here is for identification only and does not imply endorsement.

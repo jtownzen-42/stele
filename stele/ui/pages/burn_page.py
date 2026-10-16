@@ -20,6 +20,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from stele.legal import allowed_runtime_ids
 from stele.burn.imapi import ImapiError, burn_directory, eject, enumerate_recorders, find_disc_stele_root, probe, verify_volume
 from stele.burn.iso import export_iso
 from stele.burn.layout import build_disc_set, model_payload, runtime_pack_file
@@ -197,7 +198,7 @@ class BurnPage(QWidget):
         return {
             "ids": list(self.selected_ids),
             "include_runtime": self.include_runtime.isChecked(),
-            "runtime_ids": list(self.window.settings.burn_runtime_ids()),
+            "runtime_ids": allowed_runtime_ids(self.window.db, self.window.settings.burn_runtime_ids()),
             "capacity": capacity,
             "verify": self.verify.isChecked(),
             "close": self.close.isChecked(),

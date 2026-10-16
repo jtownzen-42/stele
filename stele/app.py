@@ -52,6 +52,15 @@ def main() -> int:
     db.recover_on_startup()
     app = QApplication(sys.argv)
     app.setStyle("Fusion")
+    from stele.legal import accept_eula, eula_accepted
+
+    if not eula_accepted(db):
+        from stele.ui.legal_dialogs import EulaDialog
+
+        if EulaDialog().exec() != EulaDialog.DialogCode.Accepted:
+            db.close()
+            return 0
+        accept_eula(db)
     window = MainWindow(db)
     window.show()
     code = app.exec()
