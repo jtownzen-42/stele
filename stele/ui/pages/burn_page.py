@@ -364,17 +364,18 @@ class BurnPage(QWidget):
         self._run(work, self._planned)
 
     def _pro_allowed(self, feature: str) -> bool:
-        """Free tier: ISO export only. Burning and spanning need Pro."""
+        """Free tier: ISO export only. Burning and spanning need Pro.
+
+        Pro is re-checked with Gumroad each time, so a refunded or charged-back key stops working at
+        once. If Gumroad cannot be reached, Pro still works inside the 14-day grace period.
+        """
         from stele.license import FeatureLocked, refresh_license, require_pro
 
+        refresh_license(self.window.db)
         try:
             require_pro(self.window.db, feature)
             return True
         except FeatureLocked as exc:
-            # One quiet re-check in case the licence was verified long ago and Gumroad is reachable.
-            pro, _ = refresh_license(self.window.db)
-            if pro:
-                return True
             self._log(str(exc))
             QMessageBox.information(self, "Stele Pro", str(exc))
             return False
