@@ -90,9 +90,9 @@ def _parse(value: str) -> datetime | None:
 def _rejection(purchase: dict[str, Any]) -> str | None:
     """Return the reason a purchase must not unlock Pro, or None if it is in good standing."""
     if purchase.get("refunded"):
-        return "This purchase was refunded."
+        return "This purchase was refunded. " + SUPPORT_HINT
     if purchase.get("chargebacked"):
-        return "This purchase was charged back."
+        return "This purchase was charged back. " + SUPPORT_HINT
     if purchase.get("disputed") and not purchase.get("dispute_won"):
         return "This purchase is under dispute."
     if purchase.get("subscription_cancelled_at") or purchase.get("subscription_failed_at"):
@@ -151,8 +151,24 @@ def verify_gumroad_license(
             "reachable": True,
         }
 
-    message = str(data.get("message") or "License key not found.")
-    return False, message, {"reachable": True}
+    return False, _friendly(str(data.get("message") or "")), {"reachable": True}
+
+
+SUPPORT_HINT = "If you think this is a mistake, reply to your Gumroad receipt email."
+
+
+def _friendly(gumroad_message: str) -> str:
+    """Turn Gumroad's rejection text into a clear message for the buyer."""
+    low = gumroad_message.lower()
+    if "disabled" in low:
+        return "This license key has been turned off by the seller, so Pro can't be activated. " + SUPPORT_HINT
+    if "refund" in low:
+        return "This purchase was refunded. " + SUPPORT_HINT
+    if "chargeback" in low or "charged back" in low:
+        return "This purchase was charged back. " + SUPPORT_HINT
+    if "does not exist" in low or "not found" in low or not low:
+        return "That license key wasn't found for Stele Pro. Check it was copied in full from your Gumroad receipt."
+    return gumroad_message
 
 
 # ---------------------------------------------------------------- activation and state

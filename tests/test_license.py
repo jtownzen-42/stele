@@ -143,7 +143,24 @@ def test_won_dispute_is_accepted(db):
 def test_invalid_key(db):
     with patch("httpx.post", return_value=reply(success=False, status=404, message="That license does not exist for the provided product.")):
         ok, msg = activate_license("NOPE", db)
-    assert not ok and "does not exist" in msg
+    assert not ok and "wasn't found" in msg
+    assert not is_pro(db)
+
+
+def test_disabled_key_is_rejected_with_a_friendly_message(db):
+    resp = reply(success=False, status=404, message="This license key has been disabled.")
+    with patch("httpx.post", return_value=resp):
+        ok, msg = activate_license(KEY, db)
+    assert not ok and "turned off by the seller" in msg and "receipt" in msg
+    assert not is_pro(db)
+
+
+def test_disabled_after_activation_removes_pro_on_next_check(db):
+    with patch("httpx.post", return_value=reply()):
+        activate_license(KEY, db)
+    with patch("httpx.post", return_value=reply(success=False, status=404, message="This license key has been disabled.")):
+        pro, msg = refresh_license(db)
+    assert not pro and "turned off" in msg
     assert not is_pro(db)
 
 

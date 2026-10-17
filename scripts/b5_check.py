@@ -77,7 +77,8 @@ def main() -> int:
             print("\nNext: have the test sale refunded in Gumroad, then run:  python scripts/b5_check.py --after-refund")
         else:
             ok, msg = lic.activate_license(key, db)
-            check("6 refunded key is rejected", not ok and "refund" in msg.lower(), msg)
+            revoked = any(w in msg.lower() for w in ("refund", "disabled", "turned off", "charged back"))
+            check("6 revoked (refunded or disabled) key is rejected", not ok and revoked, msg)
             check("7 Pro stays locked", not lic.is_pro(db))
 
     failed = [r for r in results if not r[1]]
