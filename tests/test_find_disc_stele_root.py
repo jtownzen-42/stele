@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 from stele.burn import imapi
@@ -47,7 +48,8 @@ def test_find_disc_stele_root_matches_volume_label(tmp_path: Path, monkeypatch) 
     stele = tmp_path / "STELE"
     stele.mkdir()
     (stele / "checksums.sha256").write_text("deadbeef  a\n", encoding="utf-8")
-    vol = str(tmp_path) if str(tmp_path).endswith("\\") else str(tmp_path) + "\\"
+    # Windows volume names end with a separator; use this OS's separator so the test runs anywhere.
+    vol = str(tmp_path) if str(tmp_path).endswith(os.sep) else str(tmp_path) + os.sep
     monkeypatch.setattr(imapi, "_iter_windows_volume_names", lambda: [vol])
     monkeypatch.setattr(imapi, "_volume_label", lambda name: "STELE_TEST_1")
     monkeypatch.setattr(imapi, "_recorder_volume_paths", lambda recorder_id: [])
