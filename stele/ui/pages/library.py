@@ -8,6 +8,7 @@ from pathlib import Path
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
+    QHeaderView,
     QHBoxLayout,
     QLabel,
     QLineEdit,
@@ -27,6 +28,8 @@ from stele.docs.spec import build_spec, write_spec_markdown
 from stele.download.worker import hash_file
 from stele.models import human_bytes, safe_repo
 
+
+from stele.ui.theme import section_title
 
 class LibraryPage(QWidget):
     def __init__(self, window) -> None:
@@ -57,6 +60,7 @@ class LibraryPage(QWidget):
         self.table = QTableWidget(0, 6)
         self.table.setHorizontalHeaderLabels(["Name", "Revision", "License", "Format", "Bytes", "When"])
         self.table.setSelectionBehavior(QTableWidget.SelectRows)
+        self.table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
         root.addWidget(self.table, 2)
 
         actions = QHBoxLayout()
@@ -72,9 +76,10 @@ class LibraryPage(QWidget):
         actions.addStretch(1)
         root.addLayout(actions)
 
-        root.addWidget(QLabel("Past burns"))
+        root.addWidget(section_title("Past burns"))
         self.burns = QTableWidget(0, 6)
         self.burns.setHorizontalHeaderLabels(["When", "Label", "Media", "Verify", "Result", "ISO"])
+        self.burns.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
         root.addWidget(self.burns, 1)
 
     def refresh(self) -> None:

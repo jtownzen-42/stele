@@ -216,6 +216,13 @@ def system_scheme() -> str:
     return "dark"
 
 
+def section_title(text: str) -> QLabel:
+    """A small uppercase-style heading with a rule under it, used to group a page into sections."""
+    label = QLabel(text)
+    label.setObjectName("sectionTitle")
+    return label
+
+
 def set_status(label, kind: str) -> None:
     """kind: 'ok', 'warn' or 'error'. Colours come from the active theme."""
     label.setObjectName({"ok": "statusOk", "warn": "statusWarn"}.get(kind, "statusError"))

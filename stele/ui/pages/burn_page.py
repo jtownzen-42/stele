@@ -21,6 +21,7 @@ from PySide6.QtWidgets import (
 )
 
 from stele.legal import allowed_runtime_ids
+from stele.ui.theme import section_title
 from stele.burn.imapi import ImapiError, burn_directory, eject, enumerate_recorders, find_disc_stele_root, probe, verify_volume
 from stele.burn.iso import export_iso
 from stele.burn.layout import build_disc_set, model_payload, runtime_pack_file
@@ -57,26 +58,39 @@ class BurnPage(QWidget):
 
         root = QVBoxLayout(self)
         root.setContentsMargins(16, 16, 16, 16)
+        root.setSpacing(8)
+
+        root.addWidget(section_title("Drive"))
         drive_row = QHBoxLayout()
+        recorder = QLabel("Recorder")
+        recorder.setMinimumWidth(90)
+        drive_row.addWidget(recorder)
         self.drives_box = QComboBox()
+        self.drives_box.setPlaceholderText("No disc recorder found")
         self.drives_box.currentIndexChanged.connect(self._show_media)
         drive_row.addWidget(self.drives_box, 1)
         refresh = QPushButton("Refresh")
+        refresh.setToolTip("Look for disc recorders again")
         refresh.clicked.connect(self._refresh_drives)
         drive_row.addWidget(refresh)
         root.addLayout(drive_row)
         self.media = QLabel(MSG_NO_DRIVE)
+        self.media.setObjectName("muted")
         self.media.setWordWrap(True)
         root.addWidget(self.media)
+
+        root.addWidget(section_title("Burn set"))
+        self.math = QLabel("No vault items selected.")
+        self.math.setWordWrap(True)
+        root.addWidget(self.math)
         self.warning = QLabel(DVD_M_DISC_NOTE)
         self.warning.setObjectName("warning")
         self.warning.setWordWrap(True)
         root.addWidget(self.warning)
-        self.math = QLabel("No vault items selected.")
-        self.math.setWordWrap(True)
-        root.addWidget(self.math)
 
+        root.addWidget(section_title("Options"))
         options = QHBoxLayout()
+        options.setSpacing(20)
         self.include_runtime = QCheckBox("Include runtime packs marked on the Runtimes page")
         self.include_runtime.setChecked(True)
         self.verify = QCheckBox("Verify after burn")
@@ -84,18 +98,26 @@ class BurnPage(QWidget):
         self.close.setChecked(True)
         self.speed = QSpinBox()
         self.speed.setRange(2, 4)
+        self.speed.setSuffix("x")
+        self.speed.setFixedWidth(90)
         options.addWidget(self.include_runtime)
         options.addWidget(self.verify)
         options.addWidget(self.close)
-        options.addWidget(QLabel("Speed"))
-        options.addWidget(self.speed)
+        speed_box = QHBoxLayout()
+        speed_box.setSpacing(8)
+        speed_box.addWidget(QLabel("Speed"))
+        speed_box.addWidget(self.speed)
+        options.addLayout(speed_box)
+        options.addStretch(1)
         root.addLayout(options)
 
+        root.addSpacing(6)
         actions = QHBoxLayout()
-        self.burn_button = QPushButton("Burn")
+        self.burn_button = QPushButton("Burn disc")
         self.burn_button.setObjectName("primary")
         self.burn_button.clicked.connect(self.burn)
         self.iso_button = QPushButton("Export ISO")
+        self.iso_button.setToolTip("Write the same disc layout to .iso files. Included in Free.")
         self.iso_button.clicked.connect(self.export_iso)
         self.next_button = QPushButton("Disc is inserted — burn next")
         self.next_button.setEnabled(False)
@@ -105,11 +127,14 @@ class BurnPage(QWidget):
         actions.addWidget(self.next_button)
         actions.addStretch(1)
         root.addLayout(actions)
+
+        root.addWidget(section_title("Activity"))
         self.wizard = QLabel("")
         self.wizard.setWordWrap(True)
         root.addWidget(self.wizard)
         self.log = QPlainTextEdit()
         self.log.setReadOnly(True)
+        self.log.setPlaceholderText("Burn and export progress appears here.")
         root.addWidget(self.log, 1)
         self.refresh()
 
@@ -119,6 +144,7 @@ class BurnPage(QWidget):
         self.refresh()
 
     def refresh(self) -> None:
+        self._show_edition()
         self.verify.setChecked(self.window.settings.always_verify())
         self.speed.setValue(self.window.settings.burn_speed())
         if not self.drives:
@@ -131,6 +157,17 @@ class BurnPage(QWidget):
         self.math.setText(
             "Burn set: " + (", ".join(names) if names else "nothing selected. Add items from the Library.")
         )
+
+    def _show_edition(self) -> None:
+        """Free users see up front that burning is part of Pro; ISO export stays available."""
+        from stele.license import is_pro
+
+        if is_pro(self.window.db):
+            self.burn_button.setText("Burn disc")
+            self.burn_button.setToolTip("")
+        else:
+            self.burn_button.setText("Burn disc · Pro")
+            self.burn_button.setToolTip("Disc burning and multi-disc spanning are part of Stele Pro. Export ISO is free.")
 
     def _refresh_drives(self) -> None:
         self.drives_box.clear()

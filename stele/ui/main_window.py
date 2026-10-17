@@ -205,6 +205,8 @@ class MainWindow(QMainWindow):
         else:
             self.setWindowTitle("Stele [Free]")
             self.edition.setText("Free")
+        if hasattr(self, "burn_page"):
+            self.burn_page._show_edition()
 
     def _set_heading(self, index: int) -> None:
         title, subtitle = PAGE_INFO[index]
