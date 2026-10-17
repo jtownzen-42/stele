@@ -33,7 +33,7 @@ from stele.ui.pages.settings_page import SettingsPage
 
 NAV = ("Discover", "Queue", "Library", "Burn", "Runtimes")
 
-from stele.ui.theme import STYLESHEET, PAGE_INFO, nav_icon, polish_tables
+from stele.ui.theme import PAGE_INFO, nav_icon, polish_tables, stylesheet, system_scheme
 
 
 class MainWindow(QMainWindow):
@@ -48,7 +48,8 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("Stele")
         self.resize(1360, 900)
         self.setMinimumSize(1100, 760)
-        self.setStyleSheet(STYLESHEET)
+        self.scheme = system_scheme()
+        self.setStyleSheet(stylesheet(self.scheme))
         font = QFont("Segoe UI", 10)
         self.setFont(font)
 
@@ -64,6 +65,7 @@ class MainWindow(QMainWindow):
         side_layout.setContentsMargins(0, 28, 0, 16)
         side_layout.setSpacing(6)
         brand = QWidget()
+        brand.setObjectName("brandBlock")
         brand_layout = QVBoxLayout(brand)
         brand_layout.setContentsMargins(26, 0, 20, 28)
         self.mark = QLabel("STELE")
@@ -82,7 +84,7 @@ class MainWindow(QMainWindow):
         self.nav.setIconSize(QSize(20, 20))
         self.nav.setSpacing(2)
         for index, name in enumerate(NAV):
-            item = QListWidgetItem(nav_icon(index), name, self.nav)
+            item = QListWidgetItem(nav_icon(index, self.scheme), name, self.nav)
             item.setToolTip(PAGE_INFO[index][1])
         self.nav.currentRowChanged.connect(self._go)
         side_layout.addWidget(self.nav, 1)
@@ -175,7 +177,24 @@ class MainWindow(QMainWindow):
             self.worker.start()
 
         self.update_license_display()
+        self._follow_system_scheme()
         self.nav.setCurrentRow(0)
+
+    def apply_scheme(self, scheme: str | None = None) -> None:
+        """Restyle the whole window for 'light' or 'dark' (default: follow the system)."""
+        self.scheme = scheme or system_scheme()
+        self.setStyleSheet(stylesheet(self.scheme))
+        for index in range(self.nav.count()):
+            self.nav.item(index).setIcon(nav_icon(index, self.scheme))
+
+    def _follow_system_scheme(self) -> None:
+        from PySide6.QtGui import QGuiApplication
+
+        app = QGuiApplication.instance()
+        try:
+            app.styleHints().colorSchemeChanged.connect(lambda *_: self.apply_scheme())
+        except AttributeError:  # Qt older than 6.5: keep the scheme picked at start-up
+            pass
 
     def update_license_display(self) -> None:
         from stele.license import is_activated, license_info

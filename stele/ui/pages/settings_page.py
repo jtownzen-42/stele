@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
@@ -22,68 +23,97 @@ from stele.credentials import clear_token, set_token, token_status
 from stele.models import CAPACITY_LABELS, PROFILES
 
 
+from stele.ui.theme import set_status
+
 class SettingsPage(QWidget):
     def __init__(self, window) -> None:
         super().__init__()
         self.window = window
         root = QVBoxLayout(self)
         root.setContentsMargins(16, 16, 16, 16)
-        form = QFormLayout()
+        root.setSpacing(6)
+
+        def section(title: str) -> QFormLayout:
+            heading = QLabel(title)
+            heading.setObjectName("sectionTitle")
+            root.addWidget(heading)
+            form = QFormLayout()
+            form.setHorizontalSpacing(18)
+            form.setVerticalSpacing(10)
+            form.setLabelAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+            root.addLayout(form)
+            forms.append(form)
+            return form
+
+        forms: list[QFormLayout] = []
+
+        storage = section("Storage")
         self.vault = QLineEdit()
         self.staging = QLineEdit()
-        form.addRow("Vault", _browse_row(self.vault, self))
-        form.addRow("Staging", _browse_row(self.staging, self))
+        storage.addRow("Vault", _browse_row(self.vault, self))
+        storage.addRow("Staging", _browse_row(self.staging, self))
+
+        burning = section("Burning")
         self.profile = QComboBox()
         self.profile.addItems(PROFILES)
-        form.addRow("Default profile", self.profile)
+        burning.addRow("Default profile", self.profile)
         self.capacity = QComboBox()
         for key, label in CAPACITY_LABELS.items():
             self.capacity.addItem(label, key)
-        form.addRow("Disc estimate", self.capacity)
+        burning.addRow("Disc estimate", self.capacity)
         self.custom_bytes = QLineEdit()
         self.custom_bytes.setPlaceholderText("Custom capacity in bytes, used when Disc estimate is Custom")
-        form.addRow("Custom bytes", self.custom_bytes)
+        burning.addRow("Custom bytes", self.custom_bytes)
         self.speed = QSpinBox()
         self.speed.setRange(2, 4)
-        form.addRow("Burn speed (2x–4x)", self.speed)
+        burning.addRow("Burn speed (2x–4x)", self.speed)
         self.verify = QCheckBox("Always verify after burn")
-        form.addRow("", self.verify)
-        self.token = QLabel()
-        form.addRow("Hugging Face token", self.token)
-        self.license_status = QLabel()
-        form.addRow("License status", self.license_status)
-        self.license_key = QLineEdit()
-        self.license_key.setPlaceholderText("Enter your Gumroad license key")
-        self.license_key.setEchoMode(QLineEdit.EchoMode.PasswordEchoOnEdit)
-        form.addRow("License key", self.license_key)
+        burning.addRow("", self.verify)
         self.studio_name = QLineEdit()
-        self.studio_name.setPlaceholderText("Organization or Studio Name (Default: STELE)")
-        form.addRow("Disc & Label branding", self.studio_name)
-        root.addLayout(form)
-        row = QHBoxLayout()
-        save = QPushButton("Save")
-        save.setObjectName("primary")
-        save.clicked.connect(self._save)
-        row.addWidget(save)
+        self.studio_name.setPlaceholderText("Organization or studio name (default: STELE)")
+        burning.addRow("Disc label branding", self.studio_name)
+
+        hub = section("Hugging Face")
+        self.token = QLabel()
         token_save = QPushButton("Save token")
         token_save.clicked.connect(self._save_token)
         token_clear = QPushButton("Clear token")
         token_clear.clicked.connect(self._clear_token)
-        license_activate = QPushButton("Activate license")
+        hub.addRow("Access token", _inline(self.token, token_save, token_clear))
+
+        pro = section("Stele Pro")
+        self.license_status = QLabel()
+        pro.addRow("Edition", self.license_status)
+        self.license_key = QLineEdit()
+        self.license_key.setPlaceholderText("Enter your Gumroad license key")
+        self.license_key.setEchoMode(QLineEdit.EchoMode.PasswordEchoOnEdit)
+        license_activate = QPushButton("Activate")
         license_activate.clicked.connect(self._activate_license)
-        license_deactivate = QPushButton("Deactivate license")
+        license_deactivate = QPushButton("Deactivate")
         license_deactivate.clicked.connect(self._deactivate_license)
-        logs = QPushButton("Open log folder")
-        logs.clicked.connect(self._logs)
-        row.addWidget(token_save)
-        row.addWidget(token_clear)
-        row.addWidget(license_activate)
-        row.addWidget(license_deactivate)
+        pro.addRow("License key", _inline(self.license_key, license_activate, license_deactivate, stretch=False))
+
+        # One label column width for every section, so fields line up down the page.
+        for form in forms:
+            for index in range(form.rowCount()):
+                item = form.itemAt(index, QFormLayout.ItemRole.LabelRole)
+                if item is not None and item.widget() is not None:
+                    item.widget().setMinimumWidth(150)
+
+        root.addSpacing(14)
+        row = QHBoxLayout()
         about = QPushButton("About and licenses")
         about.clicked.connect(self._about)
+        logs = QPushButton("Open log folder")
+        logs.clicked.connect(self._logs)
         row.addWidget(about)
         row.addWidget(logs)
         row.addStretch(1)
+        save = QPushButton("Save settings")
+        save.setObjectName("primary")
+        save.setToolTip("Saves storage, burning and branding. Token and license buttons act at once.")
+        save.clicked.connect(self._save)
+        row.addWidget(save)
         root.addLayout(row)
         root.addStretch(1)
         self.load()
@@ -98,10 +128,10 @@ class SettingsPage(QWidget):
         if info["is_active"] == "Yes":
             email_part = f" ({info['email']})" if info["email"] else ""
             self.license_status.setText(f"Active: {info['status']}{email_part}")
-            self.license_status.setStyleSheet("color: #22c55e; font-weight: 600;")
+            set_status(self.license_status, "ok")
         else:
             self.license_status.setText("Free (search, download, docs, ISO export)")
-            self.license_status.setStyleSheet("color: #d97706;")
+            set_status(self.license_status, "warn")
         if info.get("key_masked"):
             self.license_key.setPlaceholderText(f"Current: {info['key_masked']}")
 
@@ -131,7 +161,7 @@ class SettingsPage(QWidget):
         key = self.license_key.text().strip()
         if not key:
             self.license_status.setText("Please enter a license key.")
-            self.license_status.setStyleSheet("color: #ef4444;")
+            set_status(self.license_status, "error")
             return
         success, msg = activate_license(key, self.window.db)
         if success:
@@ -141,7 +171,7 @@ class SettingsPage(QWidget):
                 self.window.update_license_display()
         else:
             self.license_status.setText(f"Activation failed: {msg}")
-            self.license_status.setStyleSheet("color: #ef4444;")
+            set_status(self.license_status, "error")
 
     def _deactivate_license(self) -> None:
         from stele.license import deactivate_license
@@ -215,3 +245,17 @@ def _browse_row(edit: QLineEdit, parent: QWidget) -> QWidget:
     button.clicked.connect(pick)
     row.addWidget(button)
     return wrap
+
+
+def _inline(first: QWidget, *buttons: QPushButton, stretch: bool = True) -> QWidget:
+    """A field or label followed by its own action buttons, on one row."""
+    box = QWidget()
+    lay = QHBoxLayout(box)
+    lay.setContentsMargins(0, 0, 0, 0)
+    lay.setSpacing(8)
+    lay.addWidget(first, 0 if stretch else 1)
+    for button in buttons:
+        lay.addWidget(button)
+    if stretch:
+        lay.addStretch(1)
+    return box

@@ -12,6 +12,7 @@ from PySide6.QtWidgets import (
 )
 
 from stele.legal import eula_text, notices_text
+from stele.ui.theme import stylesheet, system_scheme
 
 
 def _reader(text: str) -> QPlainTextEdit:
@@ -28,6 +29,7 @@ class EulaDialog(QDialog):
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
         self.setWindowTitle("Stele license agreement")
+        self.setStyleSheet(stylesheet(system_scheme()))
         self.resize(640, 560)
         layout = QVBoxLayout(self)
         layout.addWidget(QLabel("Please read and accept the license agreement to use Stele."))
@@ -49,6 +51,8 @@ class AboutDialog(QDialog):
         from stele.license import license_info
 
         self.setWindowTitle("About Stele")
+        if parent is None:
+            self.setStyleSheet(stylesheet(system_scheme()))
         self.resize(660, 560)
         info = license_info(db)
         layout = QVBoxLayout(self)
