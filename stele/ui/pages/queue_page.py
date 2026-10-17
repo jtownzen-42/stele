@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
+    QHeaderView,
     QHBoxLayout,
     QLabel,
     QMessageBox,
@@ -17,35 +18,51 @@ from PySide6.QtWidgets import (
 from stele.models import human_bytes
 
 
+from stele.ui.theme import section_title
+
 class QueuePage(QWidget):
     def __init__(self, window) -> None:
         super().__init__()
         self.window = window
         root = QVBoxLayout(self)
         root.setContentsMargins(16, 16, 16, 16)
-        root.addWidget(QLabel("One job runs. One file transfers. The rest wait."))
+        intro = QLabel("One job runs at a time, one file at a time. The rest wait their turn.")
+        intro.setObjectName("muted")
+        root.addWidget(intro)
+
         buttons = QHBoxLayout()
-        for label, slot in (
-            ("Pause", self._pause),
-            ("Resume", self._resume),
-            ("Cancel", self._cancel),
-            ("Purge incomplete", self._purge),
-            ("Up", lambda: self._move(-1)),
-            ("Down", lambda: self._move(1)),
-            ("Retry failed file", self._retry),
-        ):
+        buttons.setSpacing(6)
+
+        def add(label: str, slot, tip: str = "") -> QPushButton:
             button = QPushButton(label)
             button.clicked.connect(slot)
+            if tip:
+                button.setToolTip(tip)
             buttons.addWidget(button)
+            return button
+
+        add("Pause", self._pause, "Pause the selected job; partial files are kept")
+        add("Resume", self._resume)
+        add("Cancel", self._cancel)
+        buttons.addSpacing(16)
+        add("Move up", lambda: self._move(-1), "Run the selected job earlier")
+        add("Move down", lambda: self._move(1), "Run the selected job later")
         buttons.addStretch(1)
+        add("Retry failed file", self._retry)
+        add("Purge incomplete", self._purge, "Delete partial downloads that will not be resumed")
         root.addLayout(buttons)
+
+        root.addWidget(section_title("Jobs"))
         self.jobs = QTableWidget(0, 6)
         self.jobs.setHorizontalHeaderLabels(["#", "Kind", "Name", "Profile", "Status", "Bytes"])
         self.jobs.setSelectionBehavior(QTableWidget.SelectRows)
         self.jobs.itemSelectionChanged.connect(self._show_files)
+        self.jobs.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
         root.addWidget(self.jobs, 1)
+        root.addWidget(section_title("Files in the selected job"))
         self.files = QTableWidget(0, 5)
         self.files.setHorizontalHeaderLabels(["File", "Status", "Bytes", "SHA-256", "Error"])
+        self.files.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
         root.addWidget(self.files, 1)
 
     def refresh(self) -> None:

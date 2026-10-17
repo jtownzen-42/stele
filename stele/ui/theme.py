@@ -61,6 +61,7 @@ QStatusBar::item {{ border: none; }}
 QLabel#muted {{ color: {muted}; }}
 QLabel#warning {{ color: {warn}; }}
 QLabel#emptyState {{ color: {empty}; background: transparent; font-size: 13px; padding: 12px; }}
+QLabel#panelTitle {{ color: {textStrong}; font-size: 16px; font-weight: 600; }}
 QWidget#brandBlock {{ background: transparent; }}
 QLabel#sectionTitle {{ color: {eyebrow}; font-size: 11px; font-weight: 600; letter-spacing: 1px; padding: 14px 0 4px 0; border-bottom: 1px solid {line}; margin-bottom: 6px; }}
 QLabel#statusOk {{ color: {ok}; font-weight: 600; }}

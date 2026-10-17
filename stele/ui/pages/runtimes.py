@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
+    QHeaderView,
     QCheckBox,
     QHBoxLayout,
     QLabel,
@@ -42,6 +43,7 @@ class RuntimesPage(QWidget):
         self.table = QTableWidget(0, 5)
         self.table.setHorizontalHeaderLabels(["Include", "Pack", "Version", "Size", "File"])
         self.table.itemChanged.connect(self._toggle)
+        self.table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
         root.addWidget(self.table, 1)
         self.notes = QLabel("")
         self.notes.setWordWrap(True)

@@ -107,7 +107,7 @@ class DiscoverPage(QWidget):
         detail_layout = QVBoxLayout(detail)
         detail_layout.setContentsMargins(8, 0, 0, 0)
         self.title = QLabel("Archive preview")
-        self.title.setStyleSheet("font-size: 16px; font-weight: 600;")
+        self.title.setObjectName("panelTitle")
         self.title.setWordWrap(True)
         detail_layout.addWidget(self.title)
         self.notice = QLabel("")
