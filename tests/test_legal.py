@@ -28,6 +28,7 @@ def test_eula_covers_required_points():
                    "refund", "support", "14 days", "gumroad"):
         assert needle in text, needle
     assert "texas" not in text  # no jurisdiction the seller has not chosen
+    assert "draft" not in text  # approved by the seller 2026-10-17; no draft wording may ship
 
 
 def test_notices_list_the_shipped_dependencies():

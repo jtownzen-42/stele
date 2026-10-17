@@ -1,5 +1,5 @@
 STELE END USER LICENSE AGREEMENT
-Version 1 (draft for review by the seller before release)
+Version 1, October 2026
 
 Stele ("the Software") is published by Alexx Forge ("we", "us"). By clicking Accept, installing or using the Software you agree to this agreement. If you do not agree, do not use the Software.
 
