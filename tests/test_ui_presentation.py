@@ -49,12 +49,20 @@ def test_empty_state_tracks_data_without_covering_it(window):
     table.setRowCount(0)
     assert not empty.label.isHidden()
 
-def test_existing_activation_display_without_new_tier_claim(window):
-    assert window.edition.text() == 'Unactivated'
-    window.db.set_setting('license_status','Studio (Offline)')
-    window.update_license_display()
-    assert window.edition.text() == 'Studio (Offline)'
+def test_free_edition_display_before_activation(window):
+    assert window.edition.text() == 'Free'
     assert window.nav_labels() == ['Discover','Queue','Library','Burn','Runtimes']
+
+def test_pro_edition_display_after_verified_activation(window):
+    import stele.license as lic
+    window.db.set_setting(lic.KEY_LICENSE_STATUS, 'Pro')
+    window.db.set_setting(lic.KEY_LICENSE_VERIFIED, lic._stamp(lic._now()))
+    window.update_license_display()
+    assert window.edition.text() == 'Pro'
+    # An old or missing verification falls back to Free.
+    window.db.set_setting(lic.KEY_LICENSE_VERIFIED, '')
+    window.update_license_display()
+    assert window.edition.text() == 'Free'
 
 def test_burn_and_iso_assembly_passes_a_real_workspace_path(window, monkeypatch):
     calls=[]
