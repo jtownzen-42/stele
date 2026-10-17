@@ -38,7 +38,7 @@ def main() -> int:
         app.quit()
         return 0
     if "--version" in sys.argv:
-        print("Stele Studio 1.0.0")
+        print("Stele 1.0.0")
         return 0
 
     os.environ["HF_HUB_ENABLE_HF_TRANSFER"] = "0"

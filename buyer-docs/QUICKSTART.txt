@@ -1,0 +1,99 @@
+STELE 1.0 - QUICK START
+Carve the model into stone.
+
+Stele archives Hugging Face AI models (and a few official runtimes) onto
+M-DISC optical discs, or into ISO images, so you keep a copy that does not
+depend on anyone's servers.
+
+-----------------------------------------------------------------------
+1. INSTALL (portable, no installer)
+-----------------------------------------------------------------------
+1. Unzip the Stele folder anywhere you like, for example C:\Tools\Stele.
+2. Double-click Stele.exe.
+3. Stele is not code-signed yet, so Windows SmartScreen may warn you.
+   Choose "More info", then "Run anyway".
+4. Read the license agreement and click Accept. (Decline closes Stele.)
+
+You need: a Windows PC, an internet connection for downloads, and for
+burning, a disc writer and blank discs (BD-R or M-DISC). No writer? You
+can still Export ISO.
+
+First launch creates these folders:
+  %USERPROFILE%\Stele\vault\      finished models and runtimes
+  %USERPROFILE%\Stele\staging\    the download in progress
+  %LOCALAPPDATA%\Stele\           database, logs and disc work area
+You can move vault and staging in Workspace settings.
+
+-----------------------------------------------------------------------
+2. FREE vs PRO
+-----------------------------------------------------------------------
+Free:  search the Hub, download, generate the docs, Export ISO.
+Pro:   everything in Free, plus burning discs and spanning one archive
+       across several discs. One-time purchase on Gumroad.
+
+-----------------------------------------------------------------------
+3. ACTIVATE PRO
+-----------------------------------------------------------------------
+1. Find your license key in your Gumroad receipt email.
+2. In Stele, click "Workspace settings" (bottom left).
+3. Under "Stele Pro", paste the key and click Activate.
+4. The badge at the top right changes from Free to Pro.
+
+Activation checks the key with Gumroad, so be online the first time.
+After that, Pro keeps working offline for 14 days from the last
+successful check; then Stele needs to go online once.
+A refunded or disabled key stops unlocking Pro at the next check.
+
+Where your license lives:
+  - The key itself: Windows Credential Manager, entry "Stele".
+  - The status (Free/Pro, last check): Stele's database in
+    %LOCALAPPDATA%\Stele\stele.db.
+
+Moving to a new PC? Click Deactivate on the old one, then activate on the
+new one with the same key.
+
+-----------------------------------------------------------------------
+4. YOUR FIRST ARCHIVE
+-----------------------------------------------------------------------
+1. Discover: search for a model (repository id or keywords) and select it.
+2. Pick a revision and a profile ("GGUF inference pack" is the usual
+   choice for running models locally).
+3. Read the model's license, tick "I acknowledge the model license", then
+   Add to Queue. Gated models also need a Hugging Face token (Workspace
+   settings > Hugging Face) and the license accepted on the Hub itself.
+4. Queue: files download one at a time. Pause keeps partial files;
+   Resume picks up where it stopped.
+5. Library: when the download finishes, select it and click
+   "Add to burn set".
+6. Burn: choose your recorder, insert a blank, click "Burn disc"
+   (Pro). Stele writes a closed UDF disc and, by default, reads it back to
+   verify every file against its checksum. If the archive is bigger than
+   one disc, Pro asks you to insert the next disc when ready.
+   Or click Export ISO (free) to get the same disc layout as .iso files.
+
+Each disc contains a STELE folder with README_FIRST.txt, the docs, the
+model files, checksums.sha256 and RESTORE.ps1 (copies everything back to a
+folder you choose, offline, without running installers).
+
+-----------------------------------------------------------------------
+5. GOOD TO KNOW
+-----------------------------------------------------------------------
+- Stele does not grant redistribution rights. Each model keeps its own
+  license.
+- Some USB disc enclosures do not work well with Windows' burning engine
+  (IMAPI2). Export ISO is the dependable path there.
+- DVD M-DISC may need an M-DISC-aware drive. Stele cannot always tell an
+  M-DISC blank from an ordinary BD-R, so check the blank yourself.
+- A single file larger than the disc is never split. Use a larger disc or
+  Export ISO.
+- Optical media can fail. Verify your discs and keep more than one copy of
+  anything you cannot afford to lose.
+
+-----------------------------------------------------------------------
+6. HELP
+-----------------------------------------------------------------------
+Email: alexx.forge@proton.me
+Or reply to your Gumroad receipt email.
+Logs (useful when asking for help): Workspace settings > Open log folder.
+License agreement and open-source notices: Workspace settings >
+About and licenses.
