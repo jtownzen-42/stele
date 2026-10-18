@@ -7,6 +7,8 @@ block_cipher = None
 datas = [
     ('stele/runtime/manifest.json', 'stele/runtime'),
     ('stele/ui/assets', 'stele/ui/assets'),
+    ('stele/legal/EULA.txt', 'stele/legal'),
+    ('stele/legal/THIRD_PARTY_NOTICES.txt', 'stele/legal'),
 ]
 
 datas += collect_data_files('reportlab')
