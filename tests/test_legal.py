@@ -111,3 +111,10 @@ def test_model_download_is_refused_without_license_acknowledgment(db, tmp_path):
         _enqueue(queue, None)
     with pytest.raises(ValueError, match="Acknowledge the license"):
         _enqueue(queue, "")
+
+
+def test_release_build_bundles_the_legal_texts():
+    """The frozen app reads EULA.txt and THIRD_PARTY_NOTICES.txt at startup, so stele.spec must ship them."""
+    spec = (Path(legal.__file__).resolve().parents[2] / "stele.spec").read_text(encoding="utf-8")
+    for name in ("EULA.txt", "THIRD_PARTY_NOTICES.txt"):
+        assert f"('stele/legal/{name}', 'stele/legal')" in spec
