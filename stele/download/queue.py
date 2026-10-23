@@ -76,12 +76,8 @@ class Queue:
                 }
                 for item in files
             ],
+            staging_root=self.settings.staging(),
         )
-        staging = self.settings.staging() / str(job_id)
-        self.db.set_job_staging(job_id, str(staging))
-        for row in self.db.list_files(job_id):
-            local = staging / str(row["relative_path"])
-            self.db.set_file_local(int(row["id"]), str(local), row.get("etag"), row.get("size"))
         return job_id
 
     def enqueue_runtime(self, pack: dict) -> int:
@@ -115,12 +111,8 @@ class Queue:
                 "meta_json": json.dumps(meta),
             },
             [{"relative_path": filename, "size": size, "etag": pack.get("sha256"), "local_path": ""}],
+            staging_root=self.settings.staging(),
         )
-        staging = self.settings.staging() / str(job_id)
-        self.db.set_job_staging(job_id, str(staging))
-        local = staging / filename
-        file_row = self.db.list_files(job_id)[0]
-        self.db.set_file_local(int(file_row["id"]), str(local), pack.get("sha256"), size)
         return job_id
 
     def pause(self) -> None:

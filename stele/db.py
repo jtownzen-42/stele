@@ -151,7 +151,12 @@ class Database:
         row = self._one("SELECT COALESCE(MAX(position), 0) + 1 AS n FROM jobs")
         return int(row["n"]) if row else 1
 
-    def insert_job(self, fields: dict[str, Any], files: list[dict[str, Any]]) -> int:
+    def insert_job(
+        self,
+        fields: dict[str, Any],
+        files: list[dict[str, Any]],
+        staging_root: str | Path | None = None,
+    ) -> int:
         now = utc_now()
         with self._lock:
             position = int(self._one("SELECT COALESCE(MAX(position), 0) + 1 AS n FROM jobs")["n"])
@@ -187,7 +192,22 @@ class Database:
                 ),
             )
             job_id = int(cur.lastrowid)
+            # The worker may promote this job the instant it is committed, so
+            # the staging folder and every file's local path must be written
+            # in this same transaction. Setting them afterwards left a window
+            # where the first file was claimed with an empty path (Path("") is
+            # "."), which failed at the hash step with "Permission denied: '.'".
+            staging_dir = None
+            if staging_root:
+                staging_dir = Path(staging_root) / str(job_id)
+                self._conn.execute(
+                    "UPDATE jobs SET staging_path = ? WHERE id = ?",
+                    (str(staging_dir), job_id),
+                )
             for item in files:
+                local_path = item.get("local_path")
+                if staging_dir is not None and not local_path:
+                    local_path = str(staging_dir / str(item["relative_path"]))
                 self._conn.execute(
                     """
                     INSERT INTO job_files (
@@ -199,7 +219,7 @@ class Database:
                         item["relative_path"],
                         item.get("size"),
                         item.get("etag"),
-                        item.get("local_path"),
+                        local_path,
                     ),
                 )
             self._conn.commit()

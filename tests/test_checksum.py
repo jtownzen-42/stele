@@ -264,3 +264,42 @@ def test_queue_does_not_start_the_second_job(tmp_path: Path):
     assert paused["id"] == first
     assert db.get_job(second)["status"] == "queued"
     db.close()
+
+
+def test_enqueue_sets_local_paths_before_the_job_is_visible(tmp_path: Path):
+    """The worker can claim a queued job the moment it is committed. Every file
+    must already have its real local path then, not '' (which Path() turns into
+    '.' and fails the hash step with Permission denied)."""
+    db = Database(tmp_path / "stele.db")
+    settings = Settings(db)
+    settings.set_staging(tmp_path / "staging")
+    settings.set_vault(tmp_path / "vault")
+    queue = Queue(db, settings)
+
+    def forbidden(*_a, **_k):
+        raise AssertionError("local paths must be written inside insert_job, not afterwards")
+
+    db.set_file_local = forbidden
+    db.set_job_staging = forbidden
+    job_id = queue.enqueue_model(
+        repo_id="org/one",
+        revision="main",
+        commit_sha="abc123",
+        profile="Inference pack",
+        license_name="mit",
+        license_excerpt="mit",
+        license_ack_utc=utc_now(),
+        card_excerpt="",
+        pipeline_tag="text-generation",
+        library_name="transformers",
+        files=[HubFile("config.json", 4), HubFile("sub/model.bin", 8)],
+    )
+    staging = tmp_path / "staging" / str(job_id)
+    assert db.get_job(job_id)["staging_path"] == str(staging)
+    paths = {row["relative_path"]: row["local_path"] for row in db.list_files(job_id)}
+    assert paths == {
+        "config.json": str(staging / "config.json"),
+        "sub/model.bin": str(staging / "sub/model.bin"),
+    }
+    status, job, file_row = db.claim_next_file()
+    assert status == "file" and file_row["local_path"] == str(staging / "config.json")
