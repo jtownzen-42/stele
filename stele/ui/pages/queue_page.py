@@ -116,6 +116,9 @@ class QueuePage(QWidget):
                 self.files.setItem(index, col, item)
         self.files.resizeColumnsToContents()
 
+    def _need(self, what: str) -> None:
+        QMessageBox.information(self, 'Stele', f'Select {what} first.')
+
     def _pause(self) -> None:
         self.window.queue.pause()
         self.window.kick()
@@ -127,6 +130,7 @@ class QueuePage(QWidget):
             holder = self.window.db.holding_job()
             job_id = int(holder["id"]) if holder else None
         if job_id is None:
+            self._need("a job")
             return
         error = self.window.queue.resume(job_id)
         if error:
@@ -137,6 +141,7 @@ class QueuePage(QWidget):
     def _cancel(self) -> None:
         job_id = self._selected_job()
         if job_id is None:
+            self._need("a job")
             return
         self.window.queue.cancel(job_id)
         self.window.kick()
@@ -145,6 +150,7 @@ class QueuePage(QWidget):
     def _purge(self) -> None:
         job_id = self._selected_job()
         if job_id is None:
+            self._need("a job")
             return
         answer = QMessageBox.question(
             self,
@@ -160,6 +166,7 @@ class QueuePage(QWidget):
     def _move(self, direction: int) -> None:
         job_id = self._selected_job()
         if job_id is None:
+            self._need("a job")
             return
         self.window.queue.reorder(job_id, direction)
         self.refresh()
@@ -168,6 +175,7 @@ class QueuePage(QWidget):
         row = self.files.currentRow()
         item = self.files.item(row, 0) if row >= 0 else None
         if item is None:
+            self._need("a file in the Files list")
             return
         self.window.queue.retry_file(int(item.data(Qt.UserRole)))
         self.window.kick()
