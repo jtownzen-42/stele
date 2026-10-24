@@ -24,6 +24,32 @@ class Queue:
         self.db = db
         self.settings = settings
 
+    def check_free_space(self, needed: int) -> None:
+        """Refuse to queue a job the disk cannot hold. Staging and the vault both receive the data,
+        so when they share a drive the job needs twice its size. Adds a 5% + 256 MB margin."""
+        if needed <= 0:
+            return
+        margin = int(needed * 0.05) + 256 * 1024 * 1024
+        staging, vault = self.settings.staging(), self.settings.vault()
+        need: dict[str, list] = {}
+        for path in (staging, vault):
+            probe = Path(path)
+            while not probe.exists() and probe.parent != probe:
+                probe = probe.parent
+            key = str(probe.resolve().anchor or probe.resolve())
+            entry = need.setdefault(key, [probe, 0])
+            entry[1] += needed
+        for probe, total in need.values():
+            required = total + margin
+            free = shutil.disk_usage(probe).free
+            if free < required:
+                gb = 1024**3
+                raise ValueError(
+                    f"Not enough disk space on {probe.anchor or probe}: this download needs about "
+                    f"{required / gb:.1f} GB free ({total / gb:.1f} GB plus a safety margin) but only "
+                    f"{free / gb:.1f} GB is available. Free up space or change the staging or vault folder in Settings."
+                )
+
     def enqueue_model(
         self,
         *,
@@ -45,6 +71,7 @@ class Queue:
             raise ValueError("Nothing to download for this profile.")
         if not commit_sha:
             raise ValueError("The revision has no commit SHA yet.")
+        self.check_free_space(sum(item.known_size for item in files))
         staging_note = str(self.settings.staging())
         meta = {
             "license_excerpt": license_excerpt,

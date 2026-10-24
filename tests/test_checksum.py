@@ -323,3 +323,19 @@ def test_delete_job_removes_staging_and_rows(tmp_path: Path):
     assert db.get_job(job_id) is None
     assert db.list_files(job_id) == []
     assert not staging.exists()
+
+def test_enqueue_refuses_when_disk_is_too_small(tmp_path: Path):
+    db = Database(tmp_path / "stele.db")
+    settings = Settings(db)
+    settings.set_staging(tmp_path / "staging")
+    settings.set_vault(tmp_path / "vault")
+    queue = Queue(db, settings)
+    import pytest
+    huge = 10**18
+    with pytest.raises(ValueError, match="Not enough disk space"):
+        queue.enqueue_model(
+            repo_id="org/big", revision="main", commit_sha="abc", profile="Inference pack",
+            license_name="mit", license_excerpt="mit", license_ack_utc=utc_now(), card_excerpt="",
+            pipeline_tag="", library_name="", files=[HubFile("big.bin", huge)],
+        )
+    assert db.list_jobs() == []
