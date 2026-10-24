@@ -75,7 +75,34 @@ class HubClient:
                     tags=list(getattr(model, "tags", None) or []),
                 )
             )
+        self._fill_sizes(api, hits)
         return hits
+
+    @staticmethod
+    def _fill_sizes(api, hits: list[SearchHit]) -> None:
+        """Total size of every file in each repo, fetched in parallel. Failures leave the size unknown."""
+        from concurrent.futures import ThreadPoolExecutor
+
+        def total(hit: SearchHit) -> int | None:
+            try:
+                info = api.model_info(hit.repo_id, files_metadata=True)
+            except Exception:
+                return None
+            sizes = []
+            for sibling in getattr(info, "siblings", None) or []:
+                size = getattr(sibling, "size", None)
+                lfs = getattr(sibling, "lfs", None)
+                if size is None and lfs is not None:
+                    size = getattr(lfs, "size", None)
+                if size is not None:
+                    sizes.append(int(size))
+            return sum(sizes) if sizes else None
+
+        if not hits:
+            return
+        with ThreadPoolExecutor(max_workers=8) as pool:
+            for hit, size in zip(hits, pool.map(total, hits)):
+                hit.approx_bytes = size
 
     def details(self, repo_id: str, revision: str = "main") -> RepoDetails:
         api = self._api()

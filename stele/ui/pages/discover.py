@@ -97,7 +97,7 @@ class DiscoverPage(QWidget):
 
         split = QSplitter()
         self.results = QTableWidget(0, 5)
-        self.results.setHorizontalHeaderLabels(["Repository", "Author", "Updated", "Size", "Gated"])
+        self.results.setHorizontalHeaderLabels(["Repository", "Author", "Updated", "Total size (all files)", "Gated"])
         self.results.setSelectionBehavior(QTableWidget.SelectRows)
         self.results.setSelectionMode(QTableWidget.SingleSelection)
         self.results.itemSelectionChanged.connect(self._open_selected)
