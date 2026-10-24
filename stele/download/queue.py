@@ -124,6 +124,18 @@ class Queue:
     def cancel(self, job_id: int) -> None:
         self.db.cancel_job(job_id)
 
+    def delete_job(self, job_id: int) -> None:
+        """Remove a job from the queue and delete its staging files. The vault is untouched."""
+        import shutil
+        job = self.db.get_job(job_id)
+        if job is None:
+            return
+        self.db.cancel_job(job_id)
+        staging = job.get("staging_path")
+        if staging:
+            shutil.rmtree(str(staging), ignore_errors=True)
+        self.db.delete_job(job_id)
+
     def purge_incomplete(self, job_id: int) -> list[str]:
         """Delete partials and unfinished files for this job. Finished files stay."""
         removed: list[str] = []

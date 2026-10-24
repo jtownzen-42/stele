@@ -69,6 +69,8 @@ class LibraryPage(QWidget):
             ("Regenerate docs", self._regenerate),
             ("Add to burn set", self._add_burn),
             ("Export ISO", self._export),
+            ("Delete from vault", self._delete),
+            ("Delete burn record", self._delete_burn),
         ):
             button = QPushButton(label)
             button.clicked.connect(slot)
@@ -129,6 +131,33 @@ class LibraryPage(QWidget):
         if row < 0 or row >= len(self.rows):
             return None
         return self.rows[row]
+
+    def _delete(self) -> None:
+        import shutil
+        row = self._selected()
+        if row is None:
+            QMessageBox.information(self, "Stele", "Select an item first.")
+            return
+        answer = QMessageBox.question(
+            self, "Delete from vault", f"Permanently delete {row['repo_id']} and its files from the vault?"
+        )
+        if answer != QMessageBox.Yes:
+            return
+        shutil.rmtree(str(row["vault_path"]), ignore_errors=True)
+        self.window.db.delete_catalog(int(row["id"]))
+        self.refresh()
+
+    def _delete_burn(self) -> None:
+        index = self.burns.currentRow()
+        burns = self.window.db.list_burns()
+        if index < 0 or index >= len(burns):
+            QMessageBox.information(self, "Stele", "Select a burn in Past burns first.")
+            return
+        answer = QMessageBox.question(self, "Delete burn record", "Delete this burn record? ISO files are not touched.")
+        if answer != QMessageBox.Yes:
+            return
+        self.window.db.delete_burn(int(burns[index]["id"]))
+        self.refresh()
 
     def _open(self) -> None:
         row = self._selected()

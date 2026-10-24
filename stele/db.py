@@ -324,6 +324,22 @@ class Database:
             self._conn.commit()
         return None
 
+    def delete_job(self, job_id: int) -> None:
+        with self._lock:
+            self._conn.execute("DELETE FROM job_files WHERE job_id = ?", (job_id,))
+            self._conn.execute("DELETE FROM jobs WHERE id = ?", (job_id,))
+            self._conn.commit()
+
+    def delete_catalog(self, catalog_id: int) -> None:
+        with self._lock:
+            self._conn.execute("DELETE FROM catalog WHERE id = ?", (catalog_id,))
+            self._conn.commit()
+
+    def delete_burn(self, burn_id: int) -> None:
+        with self._lock:
+            self._conn.execute("DELETE FROM burns WHERE id = ?", (burn_id,))
+            self._conn.commit()
+
     def cancel_job(self, job_id: int) -> None:
         now = utc_now()
         with self._lock:

@@ -48,6 +48,7 @@ class QueuePage(QWidget):
         add("Move up", lambda: self._move(-1), "Run the selected job earlier")
         add("Move down", lambda: self._move(1), "Run the selected job later")
         buttons.addStretch(1)
+        add("Delete", self._delete, "Remove the selected job and its staged files")
         add("Retry failed file", self._retry)
         add("Purge incomplete", self._purge, "Delete partial downloads that will not be resumed")
         root.addLayout(buttons)
@@ -161,6 +162,20 @@ class QueuePage(QWidget):
             return
         removed = self.window.queue.purge_incomplete(job_id)
         QMessageBox.information(self, "Stele", f"Removed {len(removed)} incomplete file(s).")
+        self.refresh()
+
+    def _delete(self) -> None:
+        job_id = self._selected_job()
+        if job_id is None:
+            self._need("a job")
+            return
+        answer = QMessageBox.question(
+            self, "Delete job", "Delete this job and its staged files? Anything already archived in the vault stays."
+        )
+        if answer != QMessageBox.Yes:
+            return
+        self.window.queue.delete_job(job_id)
+        self.window.kick()
         self.refresh()
 
     def _move(self, direction: int) -> None:

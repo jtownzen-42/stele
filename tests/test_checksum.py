@@ -303,3 +303,23 @@ def test_enqueue_sets_local_paths_before_the_job_is_visible(tmp_path: Path):
     }
     status, job, file_row = db.claim_next_file()
     assert status == "file" and file_row["local_path"] == str(staging / "config.json")
+
+def test_delete_job_removes_staging_and_rows(tmp_path: Path):
+    db = Database(tmp_path / "stele.db")
+    settings = Settings(db)
+    settings.set_staging(tmp_path / "staging")
+    settings.set_vault(tmp_path / "vault")
+    queue = Queue(db, settings)
+    job_id = queue.enqueue_model(
+        repo_id="org/one", revision="main", commit_sha="abc123", profile="Inference pack",
+        license_name="mit", license_excerpt="mit", license_ack_utc=utc_now(), card_excerpt="",
+        pipeline_tag="text-generation", library_name="transformers",
+        files=[HubFile("config.json", 4)],
+    )
+    staging = tmp_path / "staging" / str(job_id)
+    staging.mkdir(parents=True, exist_ok=True)
+    (staging / "config.json.partial").write_bytes(b"xx")
+    queue.delete_job(job_id)
+    assert db.get_job(job_id) is None
+    assert db.list_files(job_id) == []
+    assert not staging.exists()
