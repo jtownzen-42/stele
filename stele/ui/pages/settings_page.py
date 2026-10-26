@@ -18,7 +18,14 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from stele.credentials import clear_token, set_token, token_status
+from stele.credentials import (
+    civitai_key_status,
+    clear_civitai_key,
+    clear_token,
+    set_civitai_key,
+    set_token,
+    token_status,
+)
 from stele.models import CAPACITY_LABELS, PROFILES
 
 
@@ -61,6 +68,8 @@ class SettingsPage(QWidget):
         form.addRow("PAR2 program", self.par2)
         self.token = QLabel()
         form.addRow("Hugging Face token", self.token)
+        self.civitai = QLabel()
+        form.addRow("Civitai API key", self.civitai)
         self.license_status = QLabel()
         form.addRow("License status", self.license_status)
         self.license_key = QLineEdit()
@@ -84,10 +93,16 @@ class SettingsPage(QWidget):
         license_activate.clicked.connect(self._activate_license)
         license_deactivate = QPushButton("Deactivate license")
         license_deactivate.clicked.connect(self._deactivate_license)
+        civitai_save = QPushButton("Save Civitai key")
+        civitai_save.clicked.connect(self._save_civitai)
+        civitai_clear = QPushButton("Clear Civitai key")
+        civitai_clear.clicked.connect(self._clear_civitai)
         logs = QPushButton("Open log folder")
         logs.clicked.connect(self._logs)
         row.addWidget(token_save)
         row.addWidget(token_clear)
+        row.addWidget(civitai_save)
+        row.addWidget(civitai_clear)
         row.addWidget(license_activate)
         row.addWidget(license_deactivate)
         row.addWidget(logs)
@@ -98,6 +113,7 @@ class SettingsPage(QWidget):
 
     def refresh(self) -> None:
         self.token.setText(token_status())
+        self.civitai.setText(civitai_key_status())
         self._refresh_license()
 
     def _refresh_license(self) -> None:
@@ -128,6 +144,7 @@ class SettingsPage(QWidget):
         self.recovery.setValue(settings.recovery_percent())
         self.par2.setText(settings.par2_path())
         self.token.setText(token_status())
+        self.civitai.setText(civitai_key_status())
         self.studio_name.setText(settings.studio_name())
         self._refresh_license()
 
@@ -194,6 +211,25 @@ class SettingsPage(QWidget):
             self.token.setText(str(exc))
             return
         self.token.setText(token_status())
+
+    def _save_civitai(self) -> None:
+        from PySide6.QtWidgets import QInputDialog, QLineEdit as Edit
+
+        key, ok = QInputDialog.getText(
+            self, "Civitai API key", "API key from civitai.com/user/account (write-only):", Edit.EchoMode.Password
+        )
+        if not ok:
+            return
+        try:
+            set_civitai_key(key)
+        except Exception as exc:
+            self.civitai.setText(str(exc))
+            return
+        self.civitai.setText(civitai_key_status())
+
+    def _clear_civitai(self) -> None:
+        clear_civitai_key()
+        self.civitai.setText(civitai_key_status())
 
     def _clear_token(self) -> None:
         clear_token()

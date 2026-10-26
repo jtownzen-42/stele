@@ -1,6 +1,6 @@
 # Stele
 
-Stele is a Windows desktop application that archives Hugging Face models, and a short list of official runtimes, onto M-DISC. It searches the Hub, downloads one file at a time, writes a technical specification and a how-to-use guide, and burns a verified UDF disc or exports the same tree as an ISO image.
+Stele is a Windows desktop application that archives Hugging Face and Civitai models, and a short list of official runtimes, onto M-DISC. It searches the Hub, downloads one file at a time, writes a technical specification and a how-to-use guide, and burns a verified UDF disc or exports the same tree as an ISO image.
 
 Carve the model into stone.
 
@@ -44,6 +44,12 @@ Before a release build, set `GUMROAD_PRODUCT_ID` in `stele/license.py` to the pr
 The token is stored in Windows Credential Manager under the name Stele. It is not written to the database, the log, the PDFs, or the disc. The token field is write-only. The window shows Stored or Not set.
 
 A gated repository cannot be queued until a token is saved. You still have to accept the license on the Hub itself. Stele does not grant redistribution rights, and it asks you to acknowledge the model license before a job enters the queue.
+
+## Civitai
+
+Pick Civitai in the source list on Discover to search Civitai by name, model id, or civitai.com link. Stele archives one model version at a time into `MODELS/civitai--<model id>/v<version id>/`, checks each file against the SHA-256 that Civitai publishes, and keeps `civitai_model.json` beside the weights with the description, trigger words, base model, and the creator's permissions. Training-data files are listed but not ticked by default. Search hides NSFW models.
+
+Many Civitai downloads need an API key (civitai.com, Account settings, API keys). Save it in Workspace settings; it is stored in Windows Credential Manager like the Hugging Face token. The key is sent only to civitai.com, never to the storage host a download redirects to.
 
 ## Download rules
 

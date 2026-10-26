@@ -122,6 +122,7 @@ class SearchHit:
     gated: bool
     tags: list[str] = field(default_factory=list)
     approx_bytes: int | None = None
+    title: str = ""
 
 
 @dataclass
@@ -137,6 +138,12 @@ class RepoDetails:
     card_excerpt: str
     files: list[HubFile]
     private: bool = False
+    # "huggingface" or "civitai". Civitai versions carry their own download URLs,
+    # the version list for the revision picker, and the model metadata to archive.
+    source: str = "huggingface"
+    download_urls: dict[str, str] = field(default_factory=dict)
+    versions: list[tuple[str, str]] = field(default_factory=list)
+    source_meta: dict = field(default_factory=dict)
 
 
 @dataclass
