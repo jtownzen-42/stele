@@ -31,6 +31,14 @@ The first run creates:
 
 Vault and staging can be moved in Settings. The database and logs stay under Local AppData.
 
+## Free and Pro
+
+Free covers search, download, the specification and how-to documents, and a single-volume ISO export. Stele Pro adds disc burning, multi-disc sets, and PAR2 recovery data. Pro is checked where the work happens, not only in the window title.
+
+Activate Pro in Workspace settings with the license key from your Gumroad receipt. One key covers one person on up to three machines. Stele re-checks the key online about once a week. If Gumroad cannot be reached the license stays active, so an offline archive workstation keeps working; only a refund, a dispute, or a rejected key turns Pro off. There are no offline keys in this version.
+
+Before a release build, set `GUMROAD_PRODUCT_ID` in `stele/license.py` to the product ID shown on the Gumroad product page.
+
 ## Hugging Face token
 
 The token is stored in Windows Credential Manager under the name Stele. It is not written to the database, the log, the PDFs, or the disc. The token field is write-only. The window shows Stored or Not set.

@@ -15,6 +15,7 @@ from stele import __version__
 from stele.burn.span import plan_volumes
 from stele.docs.labels import write_case_insert, write_disc_face
 from stele.download.worker import hash_file, write_checksum_file
+from stele.license import FEATURE_SPAN, ProRequired
 from stele.models import (
     DISCLAIMER,
     ModelDiscMeta,
@@ -88,10 +89,13 @@ def build_disc_set(
     created_utc: str,
     set_id: str | None = None,
     studio_name: str = "STELE",
+    max_volumes: int | None = None,
 ) -> list[Path]:
     """Write `volume_XX/STELE/` trees. Returns each STELE directory.
 
     Raises ValueError when a file does not fit the media. Nothing is split.
+    Raises ProRequired when the set needs more than `max_volumes` volumes;
+    the Free tier passes 1, because multi-disc spanning is a Pro feature.
     """
     if not payload:
         raise ValueError("Nothing selected to archive.")
@@ -104,6 +108,8 @@ def build_disc_set(
         raise ValueError(span.error)
     if not span.volumes:
         raise ValueError("Nothing selected to archive.")
+    if max_volumes is not None and len(span.volumes) > max_volumes:
+        raise ProRequired(f"{FEATURE_SPAN} ({len(span.volumes)} discs for this selection)")
 
     set_id = set_id or uuid.uuid4().hex
     count = len(span.volumes)

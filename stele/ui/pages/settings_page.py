@@ -53,7 +53,7 @@ class SettingsPage(QWidget):
         self.license_status = QLabel()
         form.addRow("License status", self.license_status)
         self.license_key = QLineEdit()
-        self.license_key.setPlaceholderText("Enter Gumroad license key or STELE-STUDIO-... offline key")
+        self.license_key.setPlaceholderText("Paste the Stele Pro license key from your Gumroad receipt")
         self.license_key.setEchoMode(QLineEdit.EchoMode.PasswordEchoOnEdit)
         form.addRow("License key", self.license_key)
         self.studio_name = QLineEdit()
@@ -94,10 +94,10 @@ class SettingsPage(QWidget):
         info = license_info(self.window.db)
         if info["is_active"] == "Yes":
             email_part = f" ({info['email']})" if info["email"] else ""
-            self.license_status.setText(f"Active: {info['status']}{email_part}")
+            self.license_status.setText(f"Stele Pro{email_part}")
             self.license_status.setStyleSheet("color: #22c55e; font-weight: 600;")
         else:
-            self.license_status.setText("Unactivated (Trial)")
+            self.license_status.setText("Free: burning, multi-disc sets, and recovery data need Pro")
             self.license_status.setStyleSheet("color: #d97706;")
         if info.get("key_masked"):
             self.license_key.setPlaceholderText(f"Current: {info['key_masked']}")

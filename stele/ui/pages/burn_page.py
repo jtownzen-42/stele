@@ -24,6 +24,7 @@ from stele.burn.imapi import ImapiError, burn_directory, eject, enumerate_record
 from stele.burn.iso import export_iso
 from stele.burn.layout import build_disc_set, model_payload, runtime_pack_file
 from stele.db import utc_now
+from stele.license import FEATURE_BURN, ProRequired, is_activated, require_pro
 from stele.models import DVD_M_DISC_NOTE, MSG_NO_DRIVE, ModelDiscMeta, RuntimeDiscMeta, human_bytes, safe_repo
 from stele.runtime.catalog import get_pack
 
@@ -31,6 +32,7 @@ from stele.runtime.catalog import get_pack
 class _Job(QThread):
     succeeded = Signal(object)
     failed = Signal(str)
+    blocked = Signal(str)
 
     def __init__(self, fn) -> None:
         super().__init__()
@@ -39,6 +41,8 @@ class _Job(QThread):
     def run(self) -> None:
         try:
             self.succeeded.emit(self._fn())
+        except ProRequired as exc:
+            self.blocked.emit(str(exc))
         except Exception as exc:
             self.failed.emit(f"{exc}\n{traceback.format_exc()}")
 
@@ -203,6 +207,7 @@ class BurnPage(QWidget):
             "close": self.close.isChecked(),
             "speed": self.speed.value(),
             "recorder": None if drive is None else drive.get("id"),
+            "pro": is_activated(self.window.db),
         }
 
     def _assemble(self, snap: dict) -> list[Path]:
@@ -267,6 +272,7 @@ class BurnPage(QWidget):
             int(snap["capacity"]),
             utc_now(),
             studio_name=self.window.settings.studio_name(),
+            max_volumes=None if snap.get("pro") else 1,
         )
 
     def export_iso(self) -> None:
@@ -338,6 +344,9 @@ class BurnPage(QWidget):
         self.window.library_page.refresh()
 
     def burn(self) -> None:
+        if not is_activated(self.window.db):
+            self._blocked(str(ProRequired(FEATURE_BURN)))
+            return
         if self._guard_busy():
             return
         drive = self._current_drive()
@@ -393,7 +402,10 @@ class BurnPage(QWidget):
         verify = snap["verify"]
         recorder = snap["recorder"] or drive["id"]
 
+        db = self.window.db
+
         def work():
+            require_pro(db, FEATURE_BURN)
             outcome = burn_directory(recorder, root, label, speed_x=speed, close_disc=close)
             status, note = ("skipped", "Verify was turned off.")
             if verify:
@@ -481,9 +493,16 @@ class BurnPage(QWidget):
         thread = _Job(fn)
         thread.succeeded.connect(ok)
         thread.failed.connect(self._failed)
+        thread.blocked.connect(self._blocked)
         thread.finished.connect(thread.deleteLater)
         self._thread = thread
         thread.start()
+
+    def _blocked(self, text: str) -> None:
+        """A Pro feature was needed. Nothing was burned and nothing is logged as a failed burn."""
+        self._set_busy(False)
+        self._log(text)
+        QMessageBox.information(self, "Stele Pro", text)
 
     def _failed(self, text: str) -> None:
         self._set_busy(False)

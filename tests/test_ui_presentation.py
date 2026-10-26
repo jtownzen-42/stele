@@ -49,12 +49,23 @@ def test_empty_state_tracks_data_without_covering_it(window):
     table.setRowCount(0)
     assert not empty.label.isHidden()
 
-def test_existing_activation_display_without_new_tier_claim(window):
-    assert window.edition.text() == 'Unactivated'
+def test_activation_display_shows_free_or_pro(window):
+    assert window.edition.text() == 'Free'
     window.db.set_setting('license_status','Studio (Offline)')
     window.update_license_display()
-    assert window.edition.text() == 'Studio (Offline)'
+    assert window.edition.text() == 'Free'
+    window.db.set_setting('license_status','Pro')
+    window.update_license_display()
+    assert window.edition.text() == 'Pro'
     assert window.nav_labels() == ['Discover','Queue','Library','Burn','Runtimes']
+
+def test_free_tier_burn_is_blocked_before_any_work(window, monkeypatch):
+    shown=[]
+    monkeypatch.setattr('stele.ui.pages.burn_page.QMessageBox.information',lambda *a: shown.append(a[2]))
+    monkeypatch.setattr('stele.ui.pages.burn_page.burn_directory',lambda *a, **k: pytest.fail('burned without Pro'))
+    window.burn_page.burn()
+    assert shown and 'Stele Pro' in shown[0]
+    assert window.db.list_burns() == []
 
 def test_burn_and_iso_assembly_passes_a_real_workspace_path(window, monkeypatch):
     calls=[]
