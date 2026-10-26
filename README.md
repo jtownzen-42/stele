@@ -61,6 +61,12 @@ A download and a burn of the same tree are refused. A finished vault item can be
 
 If one file is larger than the blank, Stele stores it as equal numbered parts (`name.part001`, `name.part002`, …) on consecutive discs and records each part's SHA-256 and the whole file's SHA-256 in `VOLUME.json` and `ARCHIVE_MANIFEST.json`. Multi-disc sets need Pro.
 
+## Recovery data (Pro)
+
+With recovery data on (Settings, default 5%), every disc keeps room for a PAR2 recovery set under `RECOVERY/`, made with a standard par2 program. If a disc gets scratched, `RESTORE.ps1` copies past unreadable sectors, then repairs the damaged files when `par2` is on PATH. Without it, the script prints the exact `par2 r` command to run with any PAR2 tool (par2cmdline, MultiPar, QuickPar). Recovery data repairs scattered damage up to roughly its percentage of the disc; it does not replace a second copy.
+
+Stele looks for par2 at the path set in Settings, then `tools\par2.exe` next to the app, then PATH. Release builds bundle `tools\par2.exe` from par2cmdline-turbo (GPL-2.0) when it is present at build time.
+
 ## Disc layout
 
 ```
@@ -73,6 +79,7 @@ STELE/
   DOCS/
   MODELS/<org>--<repo>/<commit>/
   RUNTIME/    (optional)
+  RECOVERY/   (optional, PAR2)
 ```
 
 `RESTORE.ps1` copies MODELS, DOCS, and RUNTIME to a folder you choose and checks every copy against `checksums.sha256`. It stops with an error and a list of files if anything does not match. Run it from each disc of a set with the same `-Destination`; after the last part of a split file arrives, it joins the parts and checks the whole-file SHA-256. It does not use the network and it does not run installers.

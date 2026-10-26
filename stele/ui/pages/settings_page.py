@@ -48,6 +48,17 @@ class SettingsPage(QWidget):
         form.addRow("Burn speed (2x–4x)", self.speed)
         self.verify = QCheckBox("Always verify after burn")
         form.addRow("", self.verify)
+        self.recovery = QSpinBox()
+        self.recovery.setRange(0, 30)
+        self.recovery.setSuffix(" %")
+        self.recovery.setToolTip(
+            "PAR2 recovery data written to each disc (Pro). 0 turns it off. "
+            "5% repairs scattered damage and costs about 5% of each disc."
+        )
+        form.addRow("Recovery data", self.recovery)
+        self.par2 = QLineEdit()
+        self.par2.setPlaceholderText("Optional path to par2.exe. Leave empty to use the bundled copy or PATH.")
+        form.addRow("PAR2 program", self.par2)
         self.token = QLabel()
         form.addRow("Hugging Face token", self.token)
         self.license_status = QLabel()
@@ -114,6 +125,8 @@ class SettingsPage(QWidget):
         self.custom_bytes.setText(settings.db.get_setting("capacity_custom_bytes") or "")
         self.speed.setValue(settings.burn_speed())
         self.verify.setChecked(settings.always_verify())
+        self.recovery.setValue(settings.recovery_percent())
+        self.par2.setText(settings.par2_path())
         self.token.setText(token_status())
         self.studio_name.setText(settings.studio_name())
         self._refresh_license()
@@ -162,6 +175,8 @@ class SettingsPage(QWidget):
             settings.set_custom_capacity(custom_bytes)
         settings.set_burn_speed(self.speed.value())
         settings.set_always_verify(self.verify.isChecked())
+        settings.set_recovery_percent(self.recovery.value())
+        settings.set_par2_path(self.par2.text())
         settings.set_studio_name(self.studio_name.text())
         settings.ensure()
 

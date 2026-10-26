@@ -19,6 +19,8 @@ KEY_CAPACITY_CUSTOM = "capacity_custom_bytes"
 KEY_BURN_RUNTIMES = "burn_runtime_ids"
 KEY_LAST_FORMAT = "last_model_format"
 KEY_BRANDING = "branding_studio_name"
+KEY_RECOVERY = "recovery_percent"
+KEY_PAR2 = "par2_path"
 
 
 class Settings:
@@ -110,6 +112,27 @@ class Settings:
 
     def set_studio_name(self, name: str) -> None:
         self.db.set_setting(KEY_BRANDING, name.strip() or "STELE")
+
+    def recovery_percent(self) -> int:
+        """PAR2 redundancy for burned and exported volumes. 0 turns it off."""
+        from stele.burn.par2 import DEFAULT_PERCENT, MAX_PERCENT
+
+        raw = self.db.get_setting(KEY_RECOVERY) or str(DEFAULT_PERCENT)
+        try:
+            return min(MAX_PERCENT, max(0, int(raw)))
+        except ValueError:
+            return DEFAULT_PERCENT
+
+    def set_recovery_percent(self, percent: int) -> None:
+        from stele.burn.par2 import MAX_PERCENT
+
+        self.db.set_setting(KEY_RECOVERY, str(min(MAX_PERCENT, max(0, int(percent)))))
+
+    def par2_path(self) -> str:
+        return self.db.get_setting(KEY_PAR2) or ""
+
+    def set_par2_path(self, path: str) -> None:
+        self.db.set_setting(KEY_PAR2, path.strip())
 
     def ensure(self) -> None:
         for path in (self.staging(), self.vault(), self.log_dir(), self.burn_work()):

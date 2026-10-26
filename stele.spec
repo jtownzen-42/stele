@@ -11,6 +11,14 @@ datas = [
 
 datas += collect_data_files('reportlab')
 
+# PAR2 recovery data uses an external par2 program (par2cmdline-turbo,
+# GPL-2.0). Drop par2.exe into tools/ before building to bundle it; ship its
+# license and a source link in THIRD_PARTY_NOTICES.txt.
+import os
+binaries = []
+if os.path.isfile('tools/par2.exe'):
+    binaries.append(('tools/par2.exe', 'tools'))
+
 hiddenimports = [
     'comtypes',
     'comtypes.client',
@@ -31,7 +39,7 @@ hiddenimports += collect_submodules('keyring.backends')
 a = Analysis(
     ['stele/app.py'],
     pathex=['.'],
-    binaries=[],
+    binaries=binaries,
     datas=datas,
     hiddenimports=hiddenimports,
     hookspath=[],

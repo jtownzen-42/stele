@@ -12,14 +12,17 @@ import math
 import shutil
 import uuid
 from pathlib import Path
+from typing import Callable
 
 from stele import __version__
+from stele.burn.par2 import RECOVERY_DIR, create_recovery, payload_capacity
 from stele.burn.span import plan_volumes, usable_bytes
 from stele.docs.labels import write_case_insert, write_disc_face
 from stele.download.worker import hash_file, write_checksum_file
 from stele.license import FEATURE_SPAN, ProRequired
 from stele.models import (
     DISCLAIMER,
+    HEADROOM_BYTES,
     ModelDiscMeta,
     PayloadFile,
     RuntimeDiscMeta,
@@ -168,6 +171,9 @@ def build_disc_set(
     set_id: str | None = None,
     studio_name: str = "STELE",
     max_volumes: int | None = None,
+    recovery_percent: int = 0,
+    par2_exe: Path | None = None,
+    progress: Callable[[str], None] | None = None,
 ) -> list[Path]:
     """Write `volume_XX/STELE/` trees. Returns each STELE directory.
 
@@ -175,14 +181,23 @@ def build_disc_set(
     volumes; RESTORE.ps1 rejoins them and checks the whole-file SHA-256.
     Raises ProRequired when the set needs more than `max_volumes` volumes;
     the Free tier passes 1, because multi-disc spanning is a Pro feature.
+
+    With `recovery_percent` > 0 each volume keeps room for, and gets, a PAR2
+    recovery set under RECOVERY/ made by `par2_exe`.
     """
     if not payload:
         raise ValueError("Nothing selected to archive.")
-    payload, splits = split_oversized(payload, usable_bytes(capacity_bytes))
+    recovery_percent = max(0, int(recovery_percent))
+    if recovery_percent and par2_exe is None:
+        raise ValueError("PAR2 recovery data was requested but no par2 program was found.")
+    usable = payload_capacity(usable_bytes(capacity_bytes), recovery_percent)
+    if usable <= 0:
+        raise ValueError("The disc is too small to hold recovery data. Lower the redundancy or use larger media.")
+    payload, splits = split_oversized(payload, usable)
     by_path = {item.disc_relative: item for item in payload}
     span = plan_volumes(
         [SpanFile(item.disc_relative, item.size) for item in payload],
-        capacity_bytes,
+        usable + HEADROOM_BYTES,
     )
     if span.error:
         raise ValueError(span.error)
@@ -273,7 +288,7 @@ def build_disc_set(
         )
         write_restore_script(root / "RESTORE.ps1")
         (root / "README_FIRST.txt").write_text(
-            _readme(volume.index, count, models_here, runtimes_here, splits),
+            _readme(volume.index, count, models_here, runtimes_here, splits, recovery_percent, label),
             encoding="utf-8",
             newline="\n",
         )
@@ -292,6 +307,15 @@ def build_disc_set(
             + "\n",
             encoding="utf-8",
         )
+
+        if recovery_percent:
+            create_recovery(root, label, recovery_percent, par2_exe, progress)
+            tree_bytes = sum(path.stat().st_size for path in root.rglob("*") if path.is_file())
+            if tree_bytes > capacity_bytes - HEADROOM_BYTES // 2:
+                raise ValueError(
+                    f"Volume {volume.index} with recovery data is {tree_bytes} bytes and does not fit the disc. "
+                    "Lower the recovery percentage in Settings or use larger media."
+                )
 
         hashed: list[tuple[str, str, int]] = []
         for path in sorted(root.rglob("*")):
@@ -334,6 +358,11 @@ def build_disc_set(
                 for sha, rel, size in hashed
             ],
             "split_files": split_files,
+            "recovery": (
+                {"format": "PAR2", "percent": recovery_percent, "index": f"{RECOVERY_DIR}/{label}.par2"}
+                if recovery_percent
+                else None
+            ),
         }
         (root / "ARCHIVE_MANIFEST.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
         roots.append(root)
@@ -358,6 +387,8 @@ def _readme(
     models: list[ModelDiscMeta],
     runtimes: list[RuntimeDiscMeta],
     splits: list[SplitFile] | None = None,
+    recovery_percent: int = 0,
+    label: str = "",
 ) -> str:
     lines = [
         "STELE ARCHIVE",
@@ -394,6 +425,12 @@ def _readme(
         lines.append("Run RESTORE.ps1 from every disc in the set with the same -Destination.")
         lines.append("Once all parts are present it joins them and checks the whole-file SHA-256.")
         lines.append("Without PowerShell, join the parts in order: copy /b name.part001 + name.part002 name")
+        lines.append("")
+    if recovery_percent:
+        lines.append(f"RECOVERY holds {recovery_percent}% PAR2 recovery data for this disc ({label}.par2).")
+        lines.append("If a file cannot be read or does not match, RESTORE.ps1 repairs it when par2 is on PATH.")
+        lines.append("Any PAR2 tool works (par2cmdline, MultiPar, QuickPar). After RESTORE.ps1 copies what it can read:")
+        lines.append(f"  par2 r -p -B<Destination> <Destination>\\RECOVERY\\{label}.par2")
         lines.append("")
     lines.append("Read DOCS for the specification and the how-to-use guide.")
     lines.append("See VOLUME.json for the other discs in this set.")

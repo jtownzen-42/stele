@@ -24,7 +24,8 @@ from stele.burn.imapi import ImapiError, burn_directory, eject, enumerate_record
 from stele.burn.iso import export_iso
 from stele.burn.layout import build_disc_set, model_payload, runtime_pack_file
 from stele.db import utc_now
-from stele.license import FEATURE_BURN, ProRequired, is_activated, require_pro
+from stele.burn.par2 import find_par2
+from stele.license import FEATURE_BURN, FEATURE_RECOVERY, ProRequired, is_activated, require_pro
 from stele.models import DVD_M_DISC_NOTE, MSG_NO_DRIVE, ModelDiscMeta, RuntimeDiscMeta, human_bytes, safe_repo
 from stele.runtime.catalog import get_pack
 
@@ -48,6 +49,8 @@ class _Job(QThread):
 
 
 class BurnPage(QWidget):
+    progress = Signal(str)
+
     def __init__(self, window) -> None:
         super().__init__()
         self.window = window
@@ -87,7 +90,9 @@ class BurnPage(QWidget):
         self.close.setChecked(True)
         self.speed = QSpinBox()
         self.speed.setRange(2, 4)
+        self.recovery = QCheckBox("Add PAR2 recovery data")
         options.addWidget(self.include_runtime)
+        options.addWidget(self.recovery)
         options.addWidget(self.verify)
         options.addWidget(self.close)
         options.addWidget(QLabel("Speed"))
@@ -114,6 +119,7 @@ class BurnPage(QWidget):
         self.log = QPlainTextEdit()
         self.log.setReadOnly(True)
         root.addWidget(self.log, 1)
+        self.progress.connect(self._log)
         self.refresh()
 
     def add_catalog(self, catalog_id: int) -> None:
@@ -124,6 +130,7 @@ class BurnPage(QWidget):
     def refresh(self) -> None:
         self.verify.setChecked(self.window.settings.always_verify())
         self.speed.setValue(self.window.settings.burn_speed())
+        self._refresh_recovery()
         if not self.drives:
             self._refresh_drives()
         names = []
@@ -134,6 +141,24 @@ class BurnPage(QWidget):
         self.math.setText(
             "Burn set: " + (", ".join(names) if names else "nothing selected. Add items from the Library.")
         )
+
+    def _refresh_recovery(self) -> None:
+        percent = self.window.settings.recovery_percent()
+        pro = is_activated(self.window.db)
+        exe = find_par2(self.window.settings.par2_path())
+        self.recovery.setText(f"Add {percent}% PAR2 recovery data" if percent else "Add PAR2 recovery data")
+        if not pro:
+            tip = "PAR2 recovery data is part of Stele Pro."
+        elif exe is None:
+            tip = "No par2 program was found. Set its path in Workspace settings."
+        elif not percent:
+            tip = "Recovery data is set to 0% in Workspace settings."
+        else:
+            tip = "Each disc keeps room for, and gets, PAR2 data that can repair scattered damage."
+        usable = pro and exe is not None and percent > 0
+        self.recovery.setEnabled(usable)
+        self.recovery.setChecked(usable)
+        self.recovery.setToolTip(tip)
 
     def _refresh_drives(self) -> None:
         self.drives_box.clear()
@@ -208,9 +233,15 @@ class BurnPage(QWidget):
             "speed": self.speed.value(),
             "recorder": None if drive is None else drive.get("id"),
             "pro": is_activated(self.window.db),
+            "recovery": self.window.settings.recovery_percent()
+            if self.recovery.isEnabled() and self.recovery.isChecked()
+            else 0,
+            "par2": find_par2(self.window.settings.par2_path()),
         }
 
     def _assemble(self, snap: dict) -> list[Path]:
+        if snap.get("recovery"):
+            require_pro(self.window.db, FEATURE_RECOVERY)
         payload = []
         models: list[ModelDiscMeta] = []
         runtimes: list[RuntimeDiscMeta] = []
@@ -273,6 +304,9 @@ class BurnPage(QWidget):
             utc_now(),
             studio_name=self.window.settings.studio_name(),
             max_volumes=None if snap.get("pro") else 1,
+            recovery_percent=int(snap.get("recovery") or 0),
+            par2_exe=snap.get("par2"),
+            progress=self.progress.emit,
         )
 
     def export_iso(self) -> None:

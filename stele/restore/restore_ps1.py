@@ -1,9 +1,11 @@
 """Generate the restore script that is copied onto every volume.
 
 The script needs only Windows PowerShell 5.1 and the disc. It copies MODELS,
-DOCS, RUNTIME, and RECOVERY file by file, checks each copy against this
-volume's checksums.sha256, and joins files that were stored in parts once the
-last part has been restored.
+DOCS, RUNTIME, and RECOVERY file by file, keeps going past unreadable sectors
+(they are written as zeros), checks each copy against this volume's
+checksums.sha256, repairs damage with the PAR2 data in RECOVERY when a par2
+program is on PATH, and joins files that were stored in parts once the last
+part has been restored.
 """
 
 from __future__ import annotations
@@ -31,6 +33,60 @@ function Join-Disc([string]$Root, [string]$Relative) {
     return Join-Path $Root ($Relative -replace '/', $sep)
 }
 
+# Copy a file and keep going past unreadable sectors. Returns the number of
+# bytes that could not be read; they are written as zeros so PAR2 can repair them.
+function Copy-Tolerant([string]$Source, [string]$Target) {
+    $lost = 0
+    $in = [System.IO.File]::Open($Source, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, [System.IO.FileShare]::Read)
+    try {
+        $out = [System.IO.File]::Open($Target, [System.IO.FileMode]::Create, [System.IO.FileAccess]::Write)
+        try {
+            $buffer = New-Object byte[] (1MB)
+            $length = $in.Length
+            $pos = [long]0
+            while ($pos -lt $length) {
+                $want = [int][Math]::Min([long]1MB, $length - $pos)
+                $got = 0
+                try {
+                    $in.Position = $pos
+                    $got = $in.Read($buffer, 0, $want)
+                } catch {
+                    $got = 0
+                }
+                if ($got -gt 0) {
+                    $out.Write($buffer, 0, $got)
+                    $pos += $got
+                    continue
+                }
+                # Retry this window in 64 KB steps and zero-fill what cannot be read.
+                $end = $pos + $want
+                while ($pos -lt $end) {
+                    $step = [int][Math]::Min([long]64KB, $end - $pos)
+                    $got = 0
+                    try {
+                        $in.Position = $pos
+                        $got = $in.Read($buffer, 0, $step)
+                    } catch {
+                        $got = 0
+                    }
+                    if ($got -le 0) {
+                        [Array]::Clear($buffer, 0, $step)
+                        $got = $step
+                        $lost += $step
+                    }
+                    $out.Write($buffer, 0, $got)
+                    $pos += $got
+                }
+            }
+        } finally {
+            $out.Dispose()
+        }
+    } finally {
+        $in.Dispose()
+    }
+    return $lost
+}
+
 $volume = $null
 $volumeFile = Join-Path $here "VOLUME.json"
 if (Test-Path -LiteralPath $volumeFile) {
@@ -41,24 +97,68 @@ if (Test-Path -LiteralPath $volumeFile) {
 # 1. Copy this disc's files and check every copy.
 $restoreFolders = @("MODELS", "DOCS", "RUNTIME", "RECOVERY")
 $copied = 0
+$kept = 0
+$expectedBy = @{}
 $bad = New-Object System.Collections.Generic.List[string]
+$badRecovery = New-Object System.Collections.Generic.List[string]
 foreach ($line in Get-Content -LiteralPath (Join-Path $here "checksums.sha256") -Encoding UTF8) {
     if ($line -notmatch '^([0-9a-fA-F]{64})  (.+)$') { continue }
     $expected = $Matches[1].ToLowerInvariant()
     $relative = $Matches[2]
-    if ($restoreFolders -notcontains ($relative -split '/')[0]) { continue }
+    $top = ($relative -split '/')[0]
+    if ($restoreFolders -notcontains $top) { continue }
+    $expectedBy[$relative] = $expected
     $target = Join-Disc $Destination $relative
+    if ((Test-Path -LiteralPath $target) -and (Get-Sha256 $target) -eq $expected) {
+        $kept++
+        continue
+    }
     New-Item -ItemType Directory -Force -Path (Split-Path -Parent $target) | Out-Null
-    Copy-Item -LiteralPath (Join-Disc $here $relative) -Destination $target -Force
+    $problem = $null
+    try {
+        $lost = Copy-Tolerant (Join-Disc $here $relative) $target
+        if ($lost -gt 0) { $problem = "UNREADABLE ($lost bytes)" }
+    } catch {
+        $problem = "UNREADABLE (could not open)"
+    }
     $copied++
-    if ((Get-Sha256 $target) -ne $expected) {
-        $bad.Add($relative)
-        Write-Host "MISMATCH: $relative"
+    if (-not $problem -and (Get-Sha256 $target) -ne $expected) { $problem = "MISMATCH" }
+    if ($problem) {
+        Write-Host "${problem}: $relative"
+        if ($top -eq "RECOVERY") { $badRecovery.Add($relative) } else { $bad.Add($relative) }
     }
 }
-Write-Host "Copied and checked $copied file(s)."
+Write-Host "Copied and checked $copied file(s). $kept file(s) were already restored and matched."
+if ($badRecovery.Count -gt 0) {
+    Write-Host "Some recovery files are damaged. PAR2 can still use the readable parts."
+}
 
-#__RECOVERY__
+# PAR2 repair of damaged files, when this disc carries recovery data.
+if ($bad.Count -gt 0 -and $volume) {
+    $index = Join-Disc $Destination ("RECOVERY/" + $volume.label + ".par2")
+    if (Test-Path -LiteralPath $index) {
+        $par2 = Get-Command par2 -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
+        if ($par2) {
+            Write-Host "Repairing with the PAR2 recovery data on this disc."
+            & $par2.Path r -q -p "-B$Destination" $index | Out-Host
+            $still = New-Object System.Collections.Generic.List[string]
+            foreach ($relative in $bad) {
+                $target = Join-Disc $Destination $relative
+                if ((Test-Path -LiteralPath $target) -and (Get-Sha256 $target) -eq $expectedBy[$relative]) {
+                    Write-Host "Repaired: $relative"
+                } else {
+                    $still.Add($relative)
+                }
+            }
+            $bad = $still
+        } else {
+            Write-Host ""
+            Write-Host "This disc carries PAR2 recovery data. Install par2cmdline or MultiPar, then run:"
+            Write-Host "  par2 r -p `"-B$Destination`" `"$index`""
+            Write-Host "and run RESTORE.ps1 again. Files that already match are kept."
+        }
+    }
+}
 
 if ($bad.Count -gt 0) {
     Write-Host ""
@@ -129,7 +229,7 @@ Write-Host "First check: ask the model to reply with the single word stele."
 Write-Host "__DISCLAIMER__"
 """
 
-RESTORE_PS1 = _TEMPLATE.replace("__DISCLAIMER__", DISCLAIMER).replace("#__RECOVERY__\n", "")
+RESTORE_PS1 = _TEMPLATE.replace("__DISCLAIMER__", DISCLAIMER)
 
 
 def write_restore_script(path: Path) -> None:
