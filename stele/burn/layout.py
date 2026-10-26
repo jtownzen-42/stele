@@ -6,13 +6,15 @@ same relative layout. This module is what makes them match.
 
 from __future__ import annotations
 
+import hashlib
 import json
+import math
 import shutil
 import uuid
 from pathlib import Path
 
 from stele import __version__
-from stele.burn.span import plan_volumes
+from stele.burn.span import plan_volumes, usable_bytes
 from stele.docs.labels import write_case_insert, write_disc_face
 from stele.download.worker import hash_file, write_checksum_file
 from stele.license import FEATURE_SPAN, ProRequired
@@ -22,6 +24,8 @@ from stele.models import (
     PayloadFile,
     RuntimeDiscMeta,
     SpanFile,
+    SplitFile,
+    part_name,
     safe_repo,
 )
 from stele.restore.restore_ps1 import write_restore_script
@@ -80,6 +84,80 @@ def runtime_pack_file(
     ]
 
 
+PART_ALIGN = 1024 * 1024
+_COPY_CHUNK = 8 * 1024 * 1024
+
+
+def split_oversized(payload: list[PayloadFile], usable: int) -> tuple[list[PayloadFile], list[SplitFile]]:
+    """Replace each file larger than `usable` with equal parts that each fit.
+
+    Parts are aligned to 1 MiB when the disc allows it, so 40 GB on 25 GB
+    blanks becomes two 20 GB parts and leaves room for other files.
+    """
+    out: list[PayloadFile] = []
+    splits: list[SplitFile] = []
+    if usable <= 0:
+        return list(payload), splits
+    align = PART_ALIGN if usable >= 2 * PART_ALIGN else 1
+    for item in payload:
+        if item.size <= usable:
+            out.append(item)
+            continue
+        count = math.ceil(item.size / usable)
+        part_size = math.ceil(math.ceil(item.size / count) / align) * align
+        if part_size > usable:
+            part_size = usable // align * align
+        count = math.ceil(item.size / part_size)
+        parts: list[PayloadFile] = []
+        for index in range(count):
+            offset = index * part_size
+            size = min(part_size, item.size - offset)
+            parts.append(
+                PayloadFile(
+                    source=item.source,
+                    disc_relative=part_name(item.disc_relative, index + 1),
+                    size=size,
+                    sha256=hash_range(item.source, offset, size),
+                    owner=item.owner,
+                    offset=offset,
+                    split_of=item.disc_relative,
+                    part_index=index + 1,
+                )
+            )
+        out.extend(parts)
+        splits.append(SplitFile(item.disc_relative, item.size, item.sha256, parts))
+    return out, splits
+
+
+def hash_range(path: Path, offset: int, length: int) -> str:
+    digest = hashlib.sha256()
+    with Path(path).open("rb") as handle:
+        handle.seek(offset)
+        remaining = length
+        while remaining > 0:
+            block = handle.read(min(_COPY_CHUNK, remaining))
+            if not block:
+                raise ValueError(f"{path} is shorter than expected.")
+            digest.update(block)
+            remaining -= len(block)
+    return digest.hexdigest()
+
+
+def _copy_payload(item: PayloadFile, target: Path) -> None:
+    if item.split_of is None:
+        shutil.copy2(item.source, target)
+        return
+    with Path(item.source).open("rb") as src, target.open("wb") as dst:
+        src.seek(item.offset)
+        remaining = item.size
+        while remaining > 0:
+            block = src.read(min(_COPY_CHUNK, remaining))
+            if not block:
+                raise ValueError(f"{item.source} is shorter than expected.")
+            dst.write(block)
+            remaining -= len(block)
+
+
 def build_disc_set(
     out_root: Path,
     payload: list[PayloadFile],
@@ -93,12 +171,14 @@ def build_disc_set(
 ) -> list[Path]:
     """Write `volume_XX/STELE/` trees. Returns each STELE directory.
 
-    Raises ValueError when a file does not fit the media. Nothing is split.
+    A file larger than one volume is stored as numbered parts on several
+    volumes; RESTORE.ps1 rejoins them and checks the whole-file SHA-256.
     Raises ProRequired when the set needs more than `max_volumes` volumes;
     the Free tier passes 1, because multi-disc spanning is a Pro feature.
     """
     if not payload:
         raise ValueError("Nothing selected to archive.")
+    payload, splits = split_oversized(payload, usable_bytes(capacity_bytes))
     by_path = {item.disc_relative: item for item in payload}
     span = plan_volumes(
         [SpanFile(item.disc_relative, item.size) for item in payload],
@@ -123,6 +203,24 @@ def build_disc_set(
         }
         for item in payload
     ]
+    split_files = [
+        {
+            "path": split.disc_relative,
+            "bytes": split.size,
+            "sha256": split.sha256,
+            "parts": [
+                {
+                    "part": part.part_index,
+                    "path": part.disc_relative,
+                    "volume": path_volume[part.disc_relative],
+                    "bytes": part.size,
+                    "sha256": part.sha256,
+                }
+                for part in split.parts
+            ],
+        }
+        for split in splits
+    ]
     if out_root.exists():
         shutil.rmtree(out_root)
     out_root.mkdir(parents=True, exist_ok=True)
@@ -138,7 +236,7 @@ def build_disc_set(
             present_owners.add(payload_item.owner)
             target = root / payload_item.disc_relative
             target.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(payload_item.source, target)
+            _copy_payload(payload_item, target)
 
         models_here = [model for model in models if model.safe_id in present_owners]
         runtimes_here = [pack for pack in runtimes if pack.pack_id in present_owners]
@@ -175,7 +273,7 @@ def build_disc_set(
         )
         write_restore_script(root / "RESTORE.ps1")
         (root / "README_FIRST.txt").write_text(
-            _readme(volume.index, count, models_here, runtimes_here),
+            _readme(volume.index, count, models_here, runtimes_here, splits),
             encoding="utf-8",
             newline="\n",
         )
@@ -187,6 +285,7 @@ def build_disc_set(
                     "count": count,
                     "label": label,
                     "files": sibling_files,
+                    "split_files": split_files,
                 },
                 indent=2,
             )
@@ -234,6 +333,7 @@ def build_disc_set(
                 {"path": rel, "bytes": size, "sha256": sha, "volume": volume.index}
                 for sha, rel, size in hashed
             ],
+            "split_files": split_files,
         }
         (root / "ARCHIVE_MANIFEST.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
         roots.append(root)
@@ -252,7 +352,13 @@ def _copy_doc(source: Path | None, dest: Path) -> None:
     shutil.copy2(source, dest)
 
 
-def _readme(index: int, count: int, models: list[ModelDiscMeta], runtimes: list[RuntimeDiscMeta]) -> str:
+def _readme(
+    index: int,
+    count: int,
+    models: list[ModelDiscMeta],
+    runtimes: list[RuntimeDiscMeta],
+    splits: list[SplitFile] | None = None,
+) -> str:
     lines = [
         "STELE ARCHIVE",
         f"DISC {index} OF {count}",
@@ -264,6 +370,8 @@ def _readme(index: int, count: int, models: list[ModelDiscMeta], runtimes: list[
         "",
         "Restore (no network required):",
         "  powershell -ExecutionPolicy Bypass -File .\\RESTORE.ps1 -Destination D:\\Restored",
+        "",
+        "RESTORE.ps1 checks every copied file against checksums.sha256 and stops with an error on a mismatch.",
         "",
         "The full license file is on this disc, inside the model folder, when the repository published one.",
         "",
@@ -277,6 +385,15 @@ def _readme(index: int, count: int, models: list[ModelDiscMeta], runtimes: list[
         lines.append("Runtimes on this volume (archived only, not installed):")
         for pack in runtimes:
             lines.append(f"  - {pack.folder} {pack.version}")
+        lines.append("")
+    if splits:
+        lines.append("Files stored in parts across discs (larger than one disc):")
+        for split in splits:
+            lines.append(f"  - {split.disc_relative}: {len(split.parts)} parts, sha256 {split.sha256}")
+        lines.append("")
+        lines.append("Run RESTORE.ps1 from every disc in the set with the same -Destination.")
+        lines.append("Once all parts are present it joins them and checks the whole-file SHA-256.")
+        lines.append("Without PowerShell, join the parts in order: copy /b name.part001 + name.part002 name")
         lines.append("")
     lines.append("Read DOCS for the specification and the how-to-use guide.")
     lines.append("See VOLUME.json for the other discs in this set.")

@@ -59,7 +59,7 @@ Burn writes a closed UDF disc at a conservative speed (2x–4x) and, by default,
 
 A download and a burn of the same tree are refused. A finished vault item can be burned while a different job downloads.
 
-If one file is larger than the blank, Stele will not split it. Use a larger disc or Export ISO.
+If one file is larger than the blank, Stele stores it as equal numbered parts (`name.part001`, `name.part002`, …) on consecutive discs and records each part's SHA-256 and the whole file's SHA-256 in `VOLUME.json` and `ARCHIVE_MANIFEST.json`. Multi-disc sets need Pro.
 
 ## Disc layout
 
@@ -75,7 +75,7 @@ STELE/
   RUNTIME/    (optional)
 ```
 
-`RESTORE.ps1` copies MODELS, DOCS, and RUNTIME to a folder you choose. It does not use the network and it does not run installers.
+`RESTORE.ps1` copies MODELS, DOCS, and RUNTIME to a folder you choose and checks every copy against `checksums.sha256`. It stops with an error and a list of files if anything does not match. Run it from each disc of a set with the same `-Destination`; after the last part of a split file arrives, it joins the parts and checks the whole-file SHA-256. It does not use the network and it does not run installers.
 
 ## Tests
 

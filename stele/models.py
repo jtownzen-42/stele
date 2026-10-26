@@ -73,6 +73,10 @@ def msg_file_too_big(name: str, size: int, usable: int) -> str:
     )
 
 
+def part_name(disc_relative: str, index: int) -> str:
+    return f"{disc_relative}.part{index:03d}"
+
+
 def msg_imapi(details: str) -> str:
     return (
         "The burn did not start. The vault was not changed. You can Export ISO. "
@@ -169,6 +173,21 @@ class PayloadFile:
     size: int
     sha256: str
     owner: str  # safe repo id, runtime pack id, or ""
+    # A part of a file that is larger than one disc: bytes [offset, offset + size)
+    # of `source`, written as `<split_of>.partNNN`. RESTORE.ps1 rejoins the parts.
+    offset: int = 0
+    split_of: str | None = None
+    part_index: int = 0
+
+
+@dataclass
+class SplitFile:
+    """A file stored as numbered parts across volumes."""
+
+    disc_relative: str
+    size: int
+    sha256: str
+    parts: list[PayloadFile]
 
 
 @dataclass
