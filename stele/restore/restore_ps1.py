@@ -176,7 +176,8 @@ if ($volume -and $volume.split_files) {
         $parts = @($split.parts | Sort-Object { [int]$_.part })
         $present = @($parts | Where-Object { Test-Path -LiteralPath (Join-Disc $Destination $_.path) })
         if (Test-Path -LiteralPath $target) {
-            if ($present.Count -eq 0 -or (Get-Sha256 $target) -eq ([string]$split.sha256).ToLowerInvariant()) {
+            # Always check the hash: a file left by an earlier, broken run must not count as joined.
+            if ((Get-Sha256 $target) -eq ([string]$split.sha256).ToLowerInvariant()) {
                 foreach ($part in $present) { Remove-Item -LiteralPath (Join-Disc $Destination $part.path) -Force }
                 Write-Host "Already joined: $($split.path)"
                 continue

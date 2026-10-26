@@ -182,6 +182,13 @@ def build_disc_set(
         raise ValueError("The disc is too small to hold recovery data. Lower the redundancy or use larger media.")
     payload, splits = split_oversized(payload, usable)
     by_path = {item.disc_relative: item for item in payload}
+    if len(by_path) != len(payload):
+        names = [item.disc_relative for item in payload]
+        clash = next(name for name in names if names.count(name) > 1)
+        raise ValueError(
+            f"{clash} already exists in the selection, so a split part cannot use that name. "
+            "Rename or remove that file and try again."
+        )
     span = plan_volumes(
         [SpanFile(item.disc_relative, item.size) for item in payload],
         usable + HEADROOM_BYTES,

@@ -140,3 +140,30 @@ def test_restore_reports_damaged_file(tmp_path: Path):
     assert result.returncode == 1
     assert "MISMATCH: MODELS/org--repo/abc/weights.gguf" in result.stdout
     assert "RESTORE FAILED" in result.stdout
+
+
+def test_part_name_collision_is_refused(tmp_path: Path):
+    src = tmp_path / "src"
+    src.mkdir()
+    big = _file(src, "weights", 9_000)
+    clash = _file(src, "weights.part001", 10, seed=5)
+    with pytest.raises(ValueError, match="weights.part001 already exists"):
+        build_disc_set(tmp_path / "discs", [big, clash], [], [], HEADROOM_BYTES + 4_000, "2026-10-26T00:00:00Z")
+
+
+@needs_powershell
+def test_stale_destination_file_is_not_taken_as_joined(tmp_path: Path):
+    roots, sources = _build(tmp_path, {"big.gguf": 9_000, "small.json": 50}, per_disc=4_000)
+    dest = tmp_path / "restored"
+    stale = dest / "MODELS" / "org--repo" / "abc" / "big.gguf"
+    stale.parent.mkdir(parents=True)
+    stale.write_bytes(b"truncated")
+    # Disc 3 holds one part; the stale file must not be reported as joined.
+    result = _restore(roots[-1], dest)
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "Already joined" not in result.stdout
+    assert "Insert disc" in result.stdout
+    for root in roots:
+        result = _restore(root, dest)
+    assert "Restore complete" in result.stdout
+    assert stale.read_bytes() == sources["big.gguf"].read_bytes()
