@@ -37,7 +37,7 @@ Free covers search, download, the specification and how-to documents, and a sing
 
 Activate Pro in Workspace settings with the license key from your Gumroad receipt. One key covers one person on up to three machines. Stele re-checks the key online about once a week. If Gumroad cannot be reached the license stays active, so an offline archive workstation keeps working; only a refund, a dispute, or a rejected key turns Pro off. There are no offline keys in this version.
 
-Before a release build, set `GUMROAD_PRODUCT_ID` in `stele/license.py` to the product ID shown on the Gumroad product page.
+`GUMROAD_PRODUCT_ID` in `stele/license.py` holds the Stele Pro product ID from the Gumroad product page. Change it only if the product is recreated.
 
 ## Hugging Face token
 

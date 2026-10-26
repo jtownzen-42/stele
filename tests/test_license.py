@@ -221,3 +221,9 @@ def test_free_tier_single_volume_iso_allowed(tmp_path):
         tmp_path / "out", _payload(tmp_path, [1000]), [], [], 25_025_314_816, "2026-10-26T00:00:00Z", max_volumes=1
     )
     assert len(roots) == 1
+
+
+def test_release_build_has_a_product_id():
+    source = Path(lic.__file__).read_text(encoding="utf-8")
+    match = re.search(r'^GUMROAD_PRODUCT_ID = "([^"]+)"$', source, re.MULTILINE)
+    assert match and match.group(1).strip()
