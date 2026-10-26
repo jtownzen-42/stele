@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import hashlib
 import json
-import math
 import shutil
 import uuid
 from pathlib import Path
@@ -16,7 +15,7 @@ from typing import Callable
 
 from stele import __version__
 from stele.burn.par2 import RECOVERY_DIR, create_recovery, payload_capacity
-from stele.burn.span import plan_volumes, usable_bytes
+from stele.burn.span import part_sizes, plan_volumes, usable_bytes
 from stele.docs.labels import write_case_insert, write_disc_face
 from stele.download.worker import hash_file, write_checksum_file
 from stele.license import FEATURE_SPAN, ProRequired
@@ -87,34 +86,21 @@ def runtime_pack_file(
     ]
 
 
-PART_ALIGN = 1024 * 1024
 _COPY_CHUNK = 8 * 1024 * 1024
 
 
 def split_oversized(payload: list[PayloadFile], usable: int) -> tuple[list[PayloadFile], list[SplitFile]]:
-    """Replace each file larger than `usable` with equal parts that each fit.
-
-    Parts are aligned to 1 MiB when the disc allows it, so 40 GB on 25 GB
-    blanks becomes two 20 GB parts and leaves room for other files.
-    """
+    """Replace each file larger than `usable` with equal parts that each fit."""
     out: list[PayloadFile] = []
     splits: list[SplitFile] = []
-    if usable <= 0:
-        return list(payload), splits
-    align = PART_ALIGN if usable >= 2 * PART_ALIGN else 1
     for item in payload:
-        if item.size <= usable:
+        sizes = part_sizes(item.size, usable)
+        if len(sizes) == 1:
             out.append(item)
             continue
-        count = math.ceil(item.size / usable)
-        part_size = math.ceil(math.ceil(item.size / count) / align) * align
-        if part_size > usable:
-            part_size = usable // align * align
-        count = math.ceil(item.size / part_size)
         parts: list[PayloadFile] = []
-        for index in range(count):
-            offset = index * part_size
-            size = min(part_size, item.size - offset)
+        offset = 0
+        for index, size in enumerate(sizes):
             parts.append(
                 PayloadFile(
                     source=item.source,
@@ -127,6 +113,7 @@ def split_oversized(payload: list[PayloadFile], usable: int) -> tuple[list[Paylo
                     part_index=index + 1,
                 )
             )
+            offset += size
         out.extend(parts)
         splits.append(SplitFile(item.disc_relative, item.size, item.sha256, parts))
     return out, splits
