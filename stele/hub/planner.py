@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from stele.burn.span import plan_volumes
+from stele.burn.span import estimate_volumes
 from stele.models import (
     PROFILE_FULL,
     PROFILE_GGUF,
@@ -12,7 +12,6 @@ from stele.models import (
     PROFILE_RUNTIME,
     HubFile,
     PlanResult,
-    SpanFile,
 )
 
 _ANCILLARY_NAMES = {
@@ -136,10 +135,7 @@ def plan_profile(
     if profile == PROFILE_GGUF and used == PROFILE_GGUF and note and note.startswith("Select at least"):
         blocked = note
     if capacity_bytes and planned and blocked is None:
-        span = plan_volumes(
-            [SpanFile(item.path, item.known_size) for item in planned],
-            capacity_bytes,
-        )
+        span = estimate_volumes([item.known_size for item in planned], capacity_bytes)
         if span.error:
             blocked = span.error
             estimate = None

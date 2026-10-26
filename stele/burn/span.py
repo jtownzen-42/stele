@@ -1,12 +1,48 @@
-"""Pack files onto volumes. A file is never split across discs."""
+"""Pack files onto volumes.
+
+plan_volumes never slices a file. Callers split files larger than one volume
+first (see part_sizes and stele.burn.layout.split_oversized).
+"""
 
 from __future__ import annotations
+
+import math
 
 from stele.models import HEADROOM_BYTES, SpanFile, SpanPlan, VolumePlan, msg_file_too_big
 
 
 def usable_bytes(capacity_bytes: int, headroom: int = HEADROOM_BYTES) -> int:
     return max(0, int(capacity_bytes) - int(headroom))
+
+
+PART_ALIGN = 1024 * 1024
+
+
+def part_sizes(size: int, usable: int) -> list[int]:
+    """Sizes of equal parts that each fit `usable`, aligned to 1 MiB when possible.
+
+    40 GB on 25 GB blanks becomes two 20 GB parts, which leaves room on each
+    disc for other files. A file that already fits is one part.
+    """
+    if size <= usable or usable <= 0:
+        return [size]
+    align = PART_ALIGN if usable >= 2 * PART_ALIGN else 1
+    count = math.ceil(size / usable)
+    part = math.ceil(math.ceil(size / count) / align) * align
+    if part > usable:
+        part = usable // align * align
+    count = math.ceil(size / part)
+    return [min(part, size - index * part) for index in range(count)]
+
+
+def estimate_volumes(sizes: list[int], capacity_bytes: int, headroom: int = HEADROOM_BYTES) -> SpanPlan:
+    """plan_volumes after splitting files that are larger than one volume."""
+    usable = usable_bytes(capacity_bytes, headroom)
+    files: list[SpanFile] = []
+    for index, size in enumerate(sizes):
+        for part, part_size in enumerate(part_sizes(size, usable)):
+            files.append(SpanFile(f"{index}.{part}", part_size))
+    return plan_volumes(files, capacity_bytes, headroom)
 
 
 def plan_volumes(files: list[SpanFile], capacity_bytes: int, headroom: int = HEADROOM_BYTES) -> SpanPlan:

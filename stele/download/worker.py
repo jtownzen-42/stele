@@ -316,6 +316,45 @@ def download_hub_file(
     return written, etag
 
 
+def download_civitai_file(
+    url: str,
+    dest: Path,
+    api_key: str | None,
+    *,
+    progress: ProgressCb | None = None,
+    stop_check: StopCb | None = None,
+    expected_size: int | None = None,
+) -> int:
+    """Download one Civitai file. The key is sent to civitai.com only."""
+    from stele.hub.civitai import CIVITAI_HOSTS, MSG_CIVITAI_AUTH, resolve_download
+    from stele.hub.client import HubError
+
+    assert_url_allowed(url, CIVITAI_HOSTS)
+    try:
+        location = resolve_download(url, api_key)
+    except HubError as exc:
+        kind = "auth" if exc.message == MSG_CIVITAI_AUTH else "network"
+        raise TransferError(exc.message, kind=kind) from exc
+    headers = {"User-Agent": "Stele/1.0"}
+    host = (urlparse(location).hostname or "").lower()
+    if api_key and (host == "civitai.com" or host.endswith(".civitai.com")):
+        headers["Authorization"] = f"Bearer {api_key}"
+    # The storage host is whatever civitai.com redirected to for this attempt.
+    allow = [*CIVITAI_HOSTS, host] if host else list(CIVITAI_HOSTS)
+    try:
+        return stream_range(
+            location,
+            dest,
+            headers=headers,
+            allow_hosts=allow,
+            expected_size=expected_size,
+            progress=progress,
+            stop_check=stop_check,
+        )
+    except AuthRefused as exc:
+        raise TransferError(MSG_CIVITAI_AUTH, kind="auth") from exc
+
+
 def download_runtime_file(
     url: str,
     dest: Path,
@@ -491,10 +530,10 @@ class DownloadWorker:
         last_error = "Download failed."
         for attempt in range(NETWORK_TRIES):
             try:
-                if job["kind"] == "runtime":
-                    from stele.db import loads_meta
+                from stele.db import loads_meta
 
-                    meta = loads_meta(job.get("meta_json"))
+                meta = loads_meta(job.get("meta_json"))
+                if job["kind"] == "runtime":
                     download_runtime_file(
                         str(meta["url"]),
                         dest,
@@ -504,6 +543,18 @@ class DownloadWorker:
                         stop_check=self._stop_check(job_id),
                     )
                     etag = meta.get("sha256")
+                elif meta.get("source") == "civitai":
+                    from stele.credentials import get_civitai_key
+
+                    download_civitai_file(
+                        str((meta.get("download_urls") or {})[relative]),
+                        dest,
+                        get_civitai_key(),
+                        progress=emit,
+                        stop_check=self._stop_check(job_id),
+                        expected_size=file_row.get("size"),
+                    )
+                    etag = file_row.get("etag")
                 else:
                     _size, etag = download_hub_file(
                         str(job["repo_id"]),

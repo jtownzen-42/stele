@@ -1,4 +1,4 @@
-"""Search the Hub, preview a profile, acknowledge the license, queue one job."""
+"""Search Hugging Face or Civitai, preview the files, acknowledge the license, queue one job."""
 
 from __future__ import annotations
 
@@ -20,8 +20,9 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from stele.credentials import clear_token, get_token, set_token, token_status
+from stele.credentials import clear_token, get_civitai_key, get_token, set_token, token_status
 from stele.db import utc_now
+from stele.hub.civitai import CivitaiClient, default_selection, is_civitai, plan_civitai
 from stele.hub.client import HubClient, HubError
 from stele.hub.planner import default_gguf, is_gguf, plan_profile
 from stele.hub.search import search_models
@@ -66,6 +67,11 @@ class DiscoverPage(QWidget):
         root.setSpacing(8)
 
         top = QHBoxLayout()
+        self.source = QComboBox()
+        self.source.addItem("Hugging Face", "huggingface")
+        self.source.addItem("Civitai", "civitai")
+        self.source.currentIndexChanged.connect(self._source_changed)
+        top.addWidget(self.source)
         self.query = QLineEdit()
         self.query.setPlaceholderText("Repository id or keywords")
         self.query.returnPressed.connect(self.search)
@@ -91,7 +97,11 @@ class DiscoverPage(QWidget):
         self.license = _combo(["", "apache-2.0", "mit", "llama3", "gemma"], "License")
         self.gated = _combo(["", "gated", "ungated"], "Gated")
         self.format_box = _combo(["", "gguf", "safetensors"], "Format")
-        for box in (self.pipeline, self.library, self.license, self.gated, self.format_box):
+        self.civitai_type = _combo(
+            ["", "Checkpoint", "LORA", "LoCon", "TextualInversion", "VAE", "Controlnet", "Upscaler"], "Type"
+        )
+        self.civitai_type.setVisible(False)
+        for box in (self.pipeline, self.library, self.license, self.gated, self.format_box, self.civitai_type):
             filters.addWidget(box)
         root.addLayout(filters)
 
@@ -168,11 +178,41 @@ class DiscoverPage(QWidget):
         if preferred in (PROFILE_GGUF, PROFILE_INFERENCE, "Full repo"):
             self.profile.setCurrentText(preferred)
 
+    def _civitai(self) -> bool:
+        return self.source.currentData() == "civitai"
+
+    def _source_changed(self, _index: int) -> None:
+        civitai = self._civitai()
+        for box in (self.pipeline, self.library, self.license, self.gated, self.format_box):
+            box.setVisible(not civitai)
+        self.civitai_type.setVisible(civitai)
+        self.query.setPlaceholderText(
+            "Model name, id, or civitai.com link" if civitai else "Repository id or keywords"
+        )
+        self.revision.blockSignals(True)
+        self.revision.clear()
+        if not civitai:
+            self.revision.addItem("main")
+        self.revision.blockSignals(False)
+        self.hits = []
+        self.details = None
+        self.results.setRowCount(0)
+        self.files.setRowCount(0)
+        self._replan()
+
     def search(self) -> None:
         query = self.query.text().strip()
         if not query:
             return
         self.notice.setText("Searching…")
+        if self._civitai():
+            model_type = str(self.civitai_type.currentData() or "")
+
+            def civitai_work():
+                return CivitaiClient(get_civitai_key()).search(query, model_type=model_type)
+
+            self._start(civitai_work, self._show_hits)
+            return
         pipeline = str(self.pipeline.currentData() or "")
         library = str(self.library.currentData() or "")
         license_id = str(self.license.currentData() or "")
@@ -214,9 +254,11 @@ class DiscoverPage(QWidget):
         if row < 0 or row >= len(self.hits):
             return
         hit = self.hits[row]
-        revision = self.revision.currentText() or "main"
+        revision = str(self.revision.currentData() or self.revision.currentText() or "main")
 
         def work():
+            if is_civitai(hit.repo_id):
+                return CivitaiClient(get_civitai_key()).details(hit.repo_id, revision)
             return HubClient(get_token()).details(hit.repo_id, revision)
 
         self.notice.setText("Loading files…")
@@ -232,7 +274,7 @@ class DiscoverPage(QWidget):
         self.results.setRowCount(len(hits))
         for row, hit in enumerate(hits):
             values = [
-                hit.repo_id,
+                f"{hit.title} ({hit.repo_id})" if hit.title else hit.repo_id,
                 hit.author,
                 hit.last_modified,
                 human_bytes(hit.approx_bytes),
@@ -246,7 +288,14 @@ class DiscoverPage(QWidget):
 
     def _show_details(self, details: RepoDetails) -> None:
         self.details = details
-        self.title.setText(f"{details.repo_id}  ·  {details.sha[:12]}  ·  {details.license_name}")
+        civitai = details.source == "civitai"
+        name = details.source_meta.get("name") if civitai else ""
+        self.title.setText(
+            f"{name}  ·  {details.repo_id}  ·  {details.sha}"
+            if civitai
+            else f"{details.repo_id}  ·  {details.sha[:12]}  ·  {details.license_name}"
+        )
+        self.profile.setEnabled(not civitai)
         if details.gated and not get_token():
             self.notice.setText(MSG_GATED)
         else:
@@ -255,17 +304,26 @@ class DiscoverPage(QWidget):
             f"License: {details.license_name}\n\n{details.card_excerpt or 'No model card text.'}"
         )
         self.revision.blockSignals(True)
-        current = details.revision or "main"
-        if self.revision.findText(current) < 0:
-            self.revision.addItem(current)
-        self.revision.setCurrentText(current)
+        if civitai:
+            self.revision.clear()
+            for label, value in details.versions:
+                self.revision.addItem(label, value)
+            index = self.revision.findData(details.revision)
+            if index >= 0:
+                self.revision.setCurrentIndex(index)
+        else:
+            current = details.revision or "main"
+            if self.revision.findText(current) < 0:
+                self.revision.addItem(current)
+            self.revision.setCurrentText(current)
         self.revision.blockSignals(False)
         chosen = default_gguf(details.files)
+        ticked = set(default_selection(details)) if civitai else set()
         self.files.setRowCount(len(details.files))
         for row, hub_file in enumerate(details.files):
-            if is_gguf(hub_file.path):
+            if civitai or is_gguf(hub_file.path):
                 box = QCheckBox()
-                box.setChecked(hub_file.path == chosen)
+                box.setChecked(hub_file.path in ticked if civitai else hub_file.path == chosen)
                 box.toggled.connect(self._replan)
                 self.files.setCellWidget(row, 0, box)
             name = QTableWidgetItem(hub_file.path)
@@ -298,13 +356,19 @@ class DiscoverPage(QWidget):
         if self.details is None:
             self.add_button.setEnabled(False)
             return
-        profile = self.profile.currentText()
-        plan = plan_profile(
-            profile,
-            self.details.files,
-            selected_gguf=self._selected_gguf(),
-            capacity_bytes=self.window.settings.capacity_bytes(),
-        )
+        if self.details.source == "civitai":
+            plan = plan_civitai(
+                self.details.files,
+                self._selected_gguf(),
+                capacity_bytes=self.window.settings.capacity_bytes(),
+            )
+        else:
+            plan = plan_profile(
+                self.profile.currentText(),
+                self.details.files,
+                selected_gguf=self._selected_gguf(),
+                capacity_bytes=self.window.settings.capacity_bytes(),
+            )
         self._plan = plan
         lines = [f"{human_bytes(item.size):>10}  {item.path}" for item in plan.files]
         head = f"{len(plan.files)} files · {human_bytes(plan.total_bytes)}"
@@ -346,10 +410,18 @@ class DiscoverPage(QWidget):
                 pipeline_tag=self.details.pipeline_tag,
                 library_name=self.details.library_name,
                 files=self._plan.files,
+                source=self.details.source,
+                download_urls=self.details.download_urls,
+                source_meta=self.details.source_meta,
             )
         except Exception as exc:
             self.notice.setText(str(exc))
             QMessageBox.warning(self, "Stele", str(exc))
+            return
+        if self.details.source == "civitai":
+            self.notice.setText(f"Queued {self.details.source_meta.get('name') or self.details.repo_id}.")
+            self.window.kick()
+            self.window.nav.setCurrentRow(1)
             return
         fmt = "gguf" if any(is_gguf(item.path) for item in self._plan.files) else "other"
         if self._plan.profile_used == PROFILE_INFERENCE:

@@ -73,6 +73,10 @@ def msg_file_too_big(name: str, size: int, usable: int) -> str:
     )
 
 
+def part_name(disc_relative: str, index: int) -> str:
+    return f"{disc_relative}.part{index:03d}"
+
+
 def msg_imapi(details: str) -> str:
     return (
         "The burn did not start. The vault was not changed. You can Export ISO. "
@@ -118,6 +122,7 @@ class SearchHit:
     gated: bool
     tags: list[str] = field(default_factory=list)
     approx_bytes: int | None = None
+    title: str = ""
 
 
 @dataclass
@@ -133,6 +138,12 @@ class RepoDetails:
     card_excerpt: str
     files: list[HubFile]
     private: bool = False
+    # "huggingface" or "civitai". Civitai versions carry their own download URLs,
+    # the version list for the revision picker, and the model metadata to archive.
+    source: str = "huggingface"
+    download_urls: dict[str, str] = field(default_factory=dict)
+    versions: list[tuple[str, str]] = field(default_factory=list)
+    source_meta: dict = field(default_factory=dict)
 
 
 @dataclass
@@ -169,6 +180,21 @@ class PayloadFile:
     size: int
     sha256: str
     owner: str  # safe repo id, runtime pack id, or ""
+    # A part of a file that is larger than one disc: bytes [offset, offset + size)
+    # of `source`, written as `<split_of>.partNNN`. RESTORE.ps1 rejoins the parts.
+    offset: int = 0
+    split_of: str | None = None
+    part_index: int = 0
+
+
+@dataclass
+class SplitFile:
+    """A file stored as numbered parts across volumes."""
+
+    disc_relative: str
+    size: int
+    sha256: str
+    parts: list[PayloadFile]
 
 
 @dataclass

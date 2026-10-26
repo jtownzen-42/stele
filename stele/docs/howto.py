@@ -37,7 +37,18 @@ def build_howto(
 ) -> HowtoGuide:
     gguf = gguf_paths[0] if gguf_paths else ""
     disc_gguf = f"MODELS/{safe_id}/{commit_sha}/{gguf}" if gguf else ""
-    if gguf_paths:
+    if repo_id.startswith("civitai/"):
+        order = (
+            f"This is a Civitai model for {library_name or 'an undeclared base model'}. Load it in an image "
+            "generation front end that supports that base model, such as ComfyUI, Forge, or InvokeAI. "
+            "LM Studio, Ollama, and llama.cpp do not load it."
+        )
+        description = (
+            f"This Stele archive holds Civitai model {repo_id} version {commit_sha} as downloaded files. "
+            "civitai_model.json beside the weights keeps the description, trigger words, base model, "
+            "and the creator's permissions as Civitai showed them."
+        )
+    elif gguf_paths:
         order = "GGUF files on this disc: use LM Studio first, then Ollama, then llama.cpp."
         description = (
             f"This Stele archive holds {repo_id} at commit {commit_sha[:12]} "
@@ -97,7 +108,7 @@ def build_howto(
         "",
         "`powershell -ExecutionPolicy Bypass -File .\\RESTORE.ps1 -Destination D:\\Restored`",
         "",
-        "The script copies MODELS, DOCS, and RUNTIME (if present) into the destination you pass.",
+        "The script copies MODELS, DOCS, and RUNTIME (if present) into the destination you pass and checks every file against checksums.sha256.",
         "On a multi-disc set, run it once for each volume into the same destination. VOLUME.json names the other discs.",
         "",
         DISCLAIMER,

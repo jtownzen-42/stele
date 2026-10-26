@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import threading
 
 from PySide6.QtCore import Qt, QSize
@@ -116,7 +117,7 @@ class MainWindow(QMainWindow):
         for label in (self.breadcrumb, self.page_title, self.page_subtitle):
             headings.addWidget(label)
         header_layout.addLayout(headings, 1)
-        self.edition = QLabel("Unactivated")
+        self.edition = QLabel("Free")
         self.edition.setObjectName("edition")
         self.edition.setToolTip("Activation status. Manage your existing license in Workspace settings.")
         header_layout.addWidget(self.edition, 0, Qt.AlignTop)
@@ -175,17 +176,32 @@ class MainWindow(QMainWindow):
             self.worker.start()
 
         self.update_license_display()
+        if start_worker:
+            self._revalidate_license()
         self.nav.setCurrentRow(0)
 
     def update_license_display(self) -> None:
-        from stele.license import is_activated, license_info
+        from stele.license import is_activated
         if is_activated(self.db):
-            status_text = license_info(self.db).get("status") or "Licensed"
-            self.setWindowTitle(f"Stele Studio [{status_text}]")
-            self.edition.setText(status_text)
+            self.setWindowTitle("Stele Pro")
+            self.edition.setText("Pro")
         else:
-            self.setWindowTitle("Stele [Unactivated]")
-            self.edition.setText("Unactivated")
+            self.setWindowTitle("Stele")
+            self.edition.setText("Free")
+
+    def _revalidate_license(self) -> None:
+        """Re-check a stored Pro key in the background. Offline never revokes."""
+        from stele.license import revalidate
+
+        db = self.db
+
+        def check() -> None:
+            try:
+                revalidate(db)
+            except Exception:
+                logging.getLogger("stele.license").exception("License re-check failed")
+
+        threading.Thread(target=check, name="stele-license", daemon=True).start()
 
     def _set_heading(self, index: int) -> None:
         title, subtitle = PAGE_INFO[index]

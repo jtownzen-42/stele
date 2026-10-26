@@ -1,6 +1,6 @@
 # Stele
 
-Stele is a Windows desktop application that archives Hugging Face models, and a short list of official runtimes, onto M-DISC. It searches the Hub, downloads one file at a time, writes a technical specification and a how-to-use guide, and burns a verified UDF disc or exports the same tree as an ISO image.
+Stele is a Windows desktop application that archives Hugging Face and Civitai models, and a short list of official runtimes, onto M-DISC. It searches the Hub, downloads one file at a time, writes a technical specification and a how-to-use guide, and burns a verified UDF disc or exports the same tree as an ISO image.
 
 Carve the model into stone.
 
@@ -31,11 +31,25 @@ The first run creates:
 
 Vault and staging can be moved in Settings. The database and logs stay under Local AppData.
 
+## Free and Pro
+
+Free covers search, download, the specification and how-to documents, and a single-volume ISO export. Stele Pro adds disc burning, multi-disc sets, and PAR2 recovery data. Pro is checked where the work happens, not only in the window title.
+
+Activate Pro in Workspace settings with the license key from your Gumroad receipt. One key covers one person on up to three machines. Stele re-checks the key online about once a week. If Gumroad cannot be reached the license stays active, so an offline archive workstation keeps working; only a refund, a dispute, or a rejected key turns Pro off. There are no offline keys in this version.
+
+Before a release build, set `GUMROAD_PRODUCT_ID` in `stele/license.py` to the product ID shown on the Gumroad product page.
+
 ## Hugging Face token
 
 The token is stored in Windows Credential Manager under the name Stele. It is not written to the database, the log, the PDFs, or the disc. The token field is write-only. The window shows Stored or Not set.
 
 A gated repository cannot be queued until a token is saved. You still have to accept the license on the Hub itself. Stele does not grant redistribution rights, and it asks you to acknowledge the model license before a job enters the queue.
+
+## Civitai
+
+Pick Civitai in the source list on Discover to search Civitai by name, model id, or civitai.com link. Stele archives one model version at a time into `MODELS/civitai--<model id>/v<version id>/`, checks each file against the SHA-256 that Civitai publishes, and keeps `civitai_model.json` beside the weights with the description, trigger words, base model, and the creator's permissions. Training-data files are listed but not ticked by default. Search hides NSFW models.
+
+Many Civitai downloads need an API key (civitai.com, Account settings, API keys). Save it in Workspace settings; it is stored in Windows Credential Manager like the Hugging Face token. The key is sent only to civitai.com, never to the storage host a download redirects to.
 
 ## Download rules
 
@@ -51,7 +65,13 @@ Burn writes a closed UDF disc at a conservative speed (2x–4x) and, by default,
 
 A download and a burn of the same tree are refused. A finished vault item can be burned while a different job downloads.
 
-If one file is larger than the blank, Stele will not split it. Use a larger disc or Export ISO.
+If one file is larger than the blank, Stele stores it as equal numbered parts (`name.part001`, `name.part002`, …) on consecutive discs and records each part's SHA-256 and the whole file's SHA-256 in `VOLUME.json` and `ARCHIVE_MANIFEST.json`. Multi-disc sets need Pro.
+
+## Recovery data (Pro)
+
+With recovery data on (Settings, default 5%), every disc keeps room for a PAR2 recovery set under `RECOVERY/`, made with a standard par2 program. If a disc gets scratched, `RESTORE.ps1` copies past unreadable sectors, then repairs the damaged files when `par2` is on PATH. Without it, the script prints the exact `par2 r` command to run with any PAR2 tool (par2cmdline, MultiPar, QuickPar). Recovery data repairs scattered damage up to roughly its percentage of the disc; it does not replace a second copy.
+
+Stele looks for par2 at the path set in Settings, then `tools\par2.exe` next to the app, then PATH. Release builds bundle `tools\par2.exe` from par2cmdline-turbo (GPL-2.0) when it is present at build time.
 
 ## Disc layout
 
@@ -65,9 +85,10 @@ STELE/
   DOCS/
   MODELS/<org>--<repo>/<commit>/
   RUNTIME/    (optional)
+  RECOVERY/   (optional, PAR2)
 ```
 
-`RESTORE.ps1` copies MODELS, DOCS, and RUNTIME to a folder you choose. It does not use the network and it does not run installers.
+`RESTORE.ps1` copies MODELS, DOCS, and RUNTIME to a folder you choose and checks every copy against `checksums.sha256`. It stops with an error and a list of files if anything does not match. Run it from each disc of a set with the same `-Destination`; after the last part of a split file arrives, it joins the parts and checks the whole-file SHA-256. It does not use the network and it does not run installers.
 
 ## Tests
 

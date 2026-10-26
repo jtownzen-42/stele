@@ -18,7 +18,14 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from stele.credentials import clear_token, set_token, token_status
+from stele.credentials import (
+    civitai_key_status,
+    clear_civitai_key,
+    clear_token,
+    set_civitai_key,
+    set_token,
+    token_status,
+)
 from stele.models import CAPACITY_LABELS, PROFILES
 
 
@@ -48,12 +55,25 @@ class SettingsPage(QWidget):
         form.addRow("Burn speed (2x–4x)", self.speed)
         self.verify = QCheckBox("Always verify after burn")
         form.addRow("", self.verify)
+        self.recovery = QSpinBox()
+        self.recovery.setRange(0, 30)
+        self.recovery.setSuffix(" %")
+        self.recovery.setToolTip(
+            "PAR2 recovery data written to each disc (Pro). 0 turns it off. "
+            "5% repairs scattered damage and costs about 5% of each disc."
+        )
+        form.addRow("Recovery data", self.recovery)
+        self.par2 = QLineEdit()
+        self.par2.setPlaceholderText("Optional path to par2.exe. Leave empty to use the bundled copy or PATH.")
+        form.addRow("PAR2 program", self.par2)
         self.token = QLabel()
         form.addRow("Hugging Face token", self.token)
+        self.civitai = QLabel()
+        form.addRow("Civitai API key", self.civitai)
         self.license_status = QLabel()
         form.addRow("License status", self.license_status)
         self.license_key = QLineEdit()
-        self.license_key.setPlaceholderText("Enter Gumroad license key or STELE-STUDIO-... offline key")
+        self.license_key.setPlaceholderText("Paste the Stele Pro license key from your Gumroad receipt")
         self.license_key.setEchoMode(QLineEdit.EchoMode.PasswordEchoOnEdit)
         form.addRow("License key", self.license_key)
         self.studio_name = QLineEdit()
@@ -73,10 +93,16 @@ class SettingsPage(QWidget):
         license_activate.clicked.connect(self._activate_license)
         license_deactivate = QPushButton("Deactivate license")
         license_deactivate.clicked.connect(self._deactivate_license)
+        civitai_save = QPushButton("Save Civitai key")
+        civitai_save.clicked.connect(self._save_civitai)
+        civitai_clear = QPushButton("Clear Civitai key")
+        civitai_clear.clicked.connect(self._clear_civitai)
         logs = QPushButton("Open log folder")
         logs.clicked.connect(self._logs)
         row.addWidget(token_save)
         row.addWidget(token_clear)
+        row.addWidget(civitai_save)
+        row.addWidget(civitai_clear)
         row.addWidget(license_activate)
         row.addWidget(license_deactivate)
         row.addWidget(logs)
@@ -87,6 +113,7 @@ class SettingsPage(QWidget):
 
     def refresh(self) -> None:
         self.token.setText(token_status())
+        self.civitai.setText(civitai_key_status())
         self._refresh_license()
 
     def _refresh_license(self) -> None:
@@ -94,10 +121,10 @@ class SettingsPage(QWidget):
         info = license_info(self.window.db)
         if info["is_active"] == "Yes":
             email_part = f" ({info['email']})" if info["email"] else ""
-            self.license_status.setText(f"Active: {info['status']}{email_part}")
+            self.license_status.setText(f"Stele Pro{email_part}")
             self.license_status.setStyleSheet("color: #22c55e; font-weight: 600;")
         else:
-            self.license_status.setText("Unactivated (Trial)")
+            self.license_status.setText("Free: burning, multi-disc sets, and recovery data need Pro")
             self.license_status.setStyleSheet("color: #d97706;")
         if info.get("key_masked"):
             self.license_key.setPlaceholderText(f"Current: {info['key_masked']}")
@@ -114,7 +141,10 @@ class SettingsPage(QWidget):
         self.custom_bytes.setText(settings.db.get_setting("capacity_custom_bytes") or "")
         self.speed.setValue(settings.burn_speed())
         self.verify.setChecked(settings.always_verify())
+        self.recovery.setValue(settings.recovery_percent())
+        self.par2.setText(settings.par2_path())
         self.token.setText(token_status())
+        self.civitai.setText(civitai_key_status())
         self.studio_name.setText(settings.studio_name())
         self._refresh_license()
 
@@ -162,6 +192,8 @@ class SettingsPage(QWidget):
             settings.set_custom_capacity(custom_bytes)
         settings.set_burn_speed(self.speed.value())
         settings.set_always_verify(self.verify.isChecked())
+        settings.set_recovery_percent(self.recovery.value())
+        settings.set_par2_path(self.par2.text())
         settings.set_studio_name(self.studio_name.text())
         settings.ensure()
 
@@ -179,6 +211,25 @@ class SettingsPage(QWidget):
             self.token.setText(str(exc))
             return
         self.token.setText(token_status())
+
+    def _save_civitai(self) -> None:
+        from PySide6.QtWidgets import QInputDialog, QLineEdit as Edit
+
+        key, ok = QInputDialog.getText(
+            self, "Civitai API key", "API key from civitai.com/user/account (write-only):", Edit.EchoMode.Password
+        )
+        if not ok:
+            return
+        try:
+            set_civitai_key(key)
+        except Exception as exc:
+            self.civitai.setText(str(exc))
+            return
+        self.civitai.setText(civitai_key_status())
+
+    def _clear_civitai(self) -> None:
+        clear_civitai_key()
+        self.civitai.setText(civitai_key_status())
 
     def _clear_token(self) -> None:
         clear_token()

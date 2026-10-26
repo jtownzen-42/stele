@@ -1,6 +1,6 @@
-"""Hugging Face token in Windows Credential Manager, plus log redaction.
+"""Hugging Face token and Civitai API key in Windows Credential Manager, plus log redaction.
 
-The token is never written to SQLite, logs, manifests, PDFs, or disc files.
+Neither is ever written to SQLite, logs, manifests, PDFs, or disc files.
 """
 
 from __future__ import annotations
@@ -10,14 +10,17 @@ import re
 
 SERVICE = "Stele"
 USERNAME = "huggingface"
+USERNAME_CIVITAI = "civitai"
 
 _HF_TOKEN = re.compile(r"hf_[A-Za-z0-9]{8,}")
 _AUTH = re.compile(r"(?i)(authorization\s*[:=]\s*)(?:bearer\s+)?\S+")
+_QUERY_TOKEN = re.compile(r"(?i)([?&]token=)[^&\s]+")
 
 
 def redact_text(text: str, extra: str | None = None) -> str:
     cleaned = _HF_TOKEN.sub("[redacted]", text)
     cleaned = _AUTH.sub(r"\1[redacted]", cleaned)
+    cleaned = _QUERY_TOKEN.sub(r"\1[redacted]", cleaned)
     if extra:
         cleaned = cleaned.replace(extra, "[redacted]")
     return cleaned
@@ -79,4 +82,31 @@ def clear_token() -> None:
         _keyring().delete_password(SERVICE, USERNAME)
     except Exception:
         # keyring raises if the entry is already gone. That is a successful clear.
+        return
+
+
+def civitai_key_status() -> str:
+    return "Stored" if get_civitai_key() else "Not set"
+
+
+def get_civitai_key() -> str | None:
+    try:
+        value = _keyring().get_password(SERVICE, USERNAME_CIVITAI)
+    except Exception:
+        logging.getLogger("stele.credentials").warning("Credential Manager could not be read")
+        return None
+    return value or None
+
+
+def set_civitai_key(key: str) -> None:
+    cleaned = key.strip()
+    if not cleaned:
+        raise ValueError("API key is empty.")
+    _keyring().set_password(SERVICE, USERNAME_CIVITAI, cleaned)
+
+
+def clear_civitai_key() -> None:
+    try:
+        _keyring().delete_password(SERVICE, USERNAME_CIVITAI)
+    except Exception:
         return

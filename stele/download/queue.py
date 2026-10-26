@@ -38,6 +38,9 @@ class Queue:
         pipeline_tag: str,
         library_name: str,
         files: list[HubFile],
+        source: str = "huggingface",
+        download_urls: dict[str, str] | None = None,
+        source_meta: dict | None = None,
     ) -> int:
         if not license_ack_utc:
             raise ValueError("Acknowledge the license before queueing.")
@@ -50,6 +53,18 @@ class Queue:
             "license_excerpt": license_excerpt,
             "card_excerpt": card_excerpt,
         }
+        if source == "civitai":
+            urls = download_urls or {}
+            missing = [item.path for item in files if item.path not in urls]
+            if missing:
+                raise ValueError(f"No Civitai download link for {missing[0]}.")
+            meta.update(
+                {
+                    "source": "civitai",
+                    "download_urls": {item.path: urls[item.path] for item in files},
+                    "civitai": source_meta or {},
+                }
+            )
         job_id = self.db.insert_job(
             {
                 "kind": "model",
@@ -256,15 +271,31 @@ class Queue:
             size = target.stat().st_size if target.exists() else int(row.get("size") or 0)
             inventory.append({"path": relative, "bytes": size, "sha256": sha256, "abs": target})
 
+        job_meta = loads_meta(job.get("meta_json"))
+        civitai = job_meta.get("civitai") if job_meta.get("source") == "civitai" else None
+        if civitai is not None:
+            from stele.hub.civitai import model_url
+
+            url = model_url(repo_id, sha)
+            # Civitai has no model card or license file to download. Keep the
+            # description, trigger words, base model, and permissions with the weights.
+            record = {key: value for key, value in civitai.items() if key != "file_types"}
+            (revision_dir / "civitai_model.json").write_text(
+                json.dumps(record, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
+            )
+        else:
+            url = f"https://huggingface.co/{repo_id}/tree/{sha}"
         source_txt = revision_dir / "SOURCE.txt"
         source_txt.write_text(
             "\n".join(
                 [
+                    f"source: {'Civitai' if civitai is not None else 'Hugging Face'}",
                     f"repo: {repo_id}",
+                    *([f"name: {civitai.get('name')}"] if civitai is not None else []),
                     f"revision: {job.get('revision') or ''}",
                     f"commit: {sha}",
                     f"downloaded_utc: {utc_now()}",
-                    f"url: https://huggingface.co/{repo_id}/tree/{sha}",
+                    f"url: {url}",
                     f"profile: {job.get('profile') or ''}",
                     DISCLAIMER,
                     "",

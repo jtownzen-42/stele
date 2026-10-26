@@ -71,3 +71,12 @@ def test_gguf_without_a_selection_is_blocked():
     plan = plan_profile(PROFILE_GGUF, _files(), selected_gguf=[], capacity_bytes=CAPACITY)
     assert plan.blocked_reason
     assert "Select at least one GGUF" in plan.blocked_reason
+
+
+def test_file_larger_than_a_disc_is_planned_as_parts():
+    from stele.models import CAPACITY_PRESETS, PROFILE_FULL, HubFile
+
+    files = [HubFile("model.safetensors", 40 * 10**9), HubFile("config.json", 1000)]
+    plan = plan_profile(PROFILE_FULL, files, capacity_bytes=CAPACITY_PRESETS["bd25"])
+    assert plan.blocked_reason is None
+    assert plan.disc_estimate == 2
