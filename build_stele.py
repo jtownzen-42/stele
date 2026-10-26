@@ -12,6 +12,11 @@ def build() -> int:
     spec = root / "stele.spec"
     dist_exe = root / "dist" / "Stele" / "Stele.exe"
 
+    sys.path.insert(0, str(root / "tools"))
+    from fetch_par2 import fetch
+
+    fetch()
+
     print("=== Building Stele with PyInstaller ===")
     cmd = [sys.executable, "-m", "PyInstaller", "--noconfirm", str(spec)]
     res = subprocess.run(cmd, cwd=root)

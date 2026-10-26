@@ -35,9 +35,11 @@ def find_par2(configured: str | None = None) -> Path | None:
     candidates: list[Path] = []
     if configured:
         candidates.append(Path(configured))
-    bundle = Path(getattr(sys, "_MEIPASS", Path(sys.executable).parent))
-    for base in (bundle, Path(sys.executable).parent, Path(__file__).resolve().parents[2]):
-        candidates.append(base / "tools" / "par2.exe")
+    if os.name == "nt":
+        # The bundled copy is a Windows build; elsewhere fall through to PATH.
+        bundle = Path(getattr(sys, "_MEIPASS", Path(sys.executable).parent))
+        for base in (bundle, Path(sys.executable).parent, Path(__file__).resolve().parents[2]):
+            candidates.append(base / "tools" / "par2.exe")
     for candidate in candidates:
         if candidate.is_file():
             return candidate

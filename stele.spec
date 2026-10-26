@@ -11,13 +11,16 @@ datas = [
 
 datas += collect_data_files('reportlab')
 
+datas += [('THIRD_PARTY_NOTICES.txt', '.')]
+
 # PAR2 recovery data uses an external par2 program (par2cmdline-turbo,
-# GPL-2.0). Drop par2.exe into tools/ before building to bundle it; ship its
-# license and a source link in THIRD_PARTY_NOTICES.txt.
+# GPL-2.0). build_stele.py runs tools/fetch_par2.py first, which downloads the
+# pinned build and its license into tools/.
 import os
 binaries = []
 if os.path.isfile('tools/par2.exe'):
     binaries.append(('tools/par2.exe', 'tools'))
+    datas.append(('tools/par2-COPYING.txt', 'tools'))
 
 hiddenimports = [
     'comtypes',
