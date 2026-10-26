@@ -156,3 +156,11 @@ def test_main_window_has_five_sections(tmp_path: Path):
             os.environ.pop("LOCALAPPDATA", None)
         else:
             os.environ["LOCALAPPDATA"] = old
+
+
+def test_restore_script_hashes_without_get_filehash():
+    from stele.restore.restore_ps1 import RESTORE_PS1
+
+    code = "\n".join(line for line in RESTORE_PS1.splitlines() if not line.lstrip().startswith("#"))
+    assert "Get-FileHash" not in code
+    assert "SHA256]::Create()" in code

@@ -25,8 +25,17 @@ New-Item -ItemType Directory -Force -Path $Destination | Out-Null
 $Destination = (Resolve-Path -LiteralPath $Destination).ProviderPath
 $sep = [string][System.IO.Path]::DirectorySeparatorChar
 
+# .NET instead of Get-FileHash: a PowerShell 7 terminal can leak its module
+# path into Windows PowerShell 5.1, which then cannot find Get-FileHash.
 function Get-Sha256([string]$Path) {
-    return (Get-FileHash -Algorithm SHA256 -LiteralPath $Path).Hash.ToLowerInvariant()
+    $sha = [System.Security.Cryptography.SHA256]::Create()
+    $stream = [System.IO.File]::OpenRead($Path)
+    try {
+        return ([System.BitConverter]::ToString($sha.ComputeHash($stream)) -replace '-', '').ToLowerInvariant()
+    } finally {
+        $stream.Dispose()
+        $sha.Dispose()
+    }
 }
 
 function Join-Disc([string]$Root, [string]$Relative) {
