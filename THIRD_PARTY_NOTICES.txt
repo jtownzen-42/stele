@@ -1,0 +1,32 @@
+STELE THIRD-PARTY NOTICES
+
+Stele includes or runs the following third-party software. Each component is
+the property of its authors and is used under the license named here. Model
+files you archive belong to their licensors; Stele does not grant
+redistribution rights.
+
+----------------------------------------------------------------------------
+par2cmdline-turbo 1.5.0 (par2.exe)
+License: GNU General Public License, version 2 or later
+Full license text: tools/par2-COPYING.txt
+Source code: https://github.com/animetosho/par2cmdline-turbo/tree/v1.5.0
+Binary: https://github.com/animetosho/par2cmdline-turbo/releases/tag/v1.5.0
+Stele runs par2.exe as a separate program to create and repair PAR2 recovery
+data. It is distributed unmodified. You may replace it with any compatible
+build by setting the PAR2 program path in Workspace settings.
+
+----------------------------------------------------------------------------
+Python packages bundled in the application
+
+PySide6 / Qt for Python - GNU Lesser General Public License v3
+  https://www.qt.io/qt-for-python  (source: https://code.qt.io/cgit/pyside/pyside-setup.git/)
+  Stele is built in PyInstaller onedir mode, so the Qt and PySide6 libraries
+  are separate files that you can replace with your own builds.
+huggingface_hub - Apache License 2.0 - https://github.com/huggingface/huggingface_hub
+ReportLab - BSD License - https://www.reportlab.com/
+httpx - BSD 3-Clause License - https://github.com/encode/httpx
+keyring - MIT License - https://github.com/jaraco/keyring
+comtypes - MIT License - https://github.com/enthought/comtypes
+
+Each package's own license file ships inside its folder in the application
+directory where the package provides one.

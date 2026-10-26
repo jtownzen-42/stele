@@ -48,3 +48,7 @@ dist/
 # Backup and scratch files
 *.bak*
 *.tmp
+
+# Fetched at build time by tools/fetch_par2.py
+tools/par2.exe
+tools/par2-COPYING.txt
