@@ -1,7 +1,7 @@
 """Generate the restore script that is copied onto every volume.
 
 The script needs only Windows PowerShell 5.1 and the disc. It copies MODELS,
-DOCS, RUNTIME, and RECOVERY file by file, keeps going past unreadable sectors
+DOCS, RUNTIME, EVIDENCE, and RECOVERY file by file, keeps going past unreadable sectors
 (they are written as zeros), checks each copy against this volume's
 checksums.sha256, repairs damage with the PAR2 data in RECOVERY when a par2
 program is on PATH, and joins files that were stored in parts once the last
@@ -104,7 +104,7 @@ if (Test-Path -LiteralPath $volumeFile) {
 }
 
 # 1. Copy this disc's files and check every copy.
-$restoreFolders = @("MODELS", "DOCS", "RUNTIME", "RECOVERY")
+$restoreFolders = @("MODELS", "DOCS", "RUNTIME", "EVIDENCE", "RECOVERY")
 $copied = 0
 $kept = 0
 $expectedBy = @{}
