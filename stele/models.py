@@ -7,6 +7,14 @@ from pathlib import Path
 
 DISCLAIMER = "Stele does not grant redistribution rights."
 FULL_LICENSE_NOTE = "full license file is on this disc"
+NOT_LEGAL_ADVICE = (
+    "Stele records timestamped evidence of what you archived. "
+    "It is not legal advice; ask a lawyer about your obligations."
+)
+CLOCK_NOTE = (
+    "Times come from this PC's own clock. Stele did not check them against "
+    "a time server or a timestamp authority."
+)
 
 PROFILE_GGUF = "GGUF inference pack"
 PROFILE_FULL = "Full repo"

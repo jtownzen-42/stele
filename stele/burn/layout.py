@@ -22,6 +22,7 @@ from stele.license import FEATURE_SPAN, ProRequired
 from stele.models import (
     DISCLAIMER,
     HEADROOM_BYTES,
+    NOT_LEGAL_ADVICE,
     ModelDiscMeta,
     PayloadFile,
     RuntimeDiscMeta,
@@ -281,8 +282,9 @@ def build_disc_set(
             studio_name=studio_name,
         )
         write_restore_script(root / "RESTORE.ps1")
+        evidence_here = sorted(item.path for item in volume.files if item.path.startswith("EVIDENCE/"))
         (root / "README_FIRST.txt").write_text(
-            _readme(volume.index, count, models_here, runtimes_here, splits, recovery_percent, label),
+            _readme(volume.index, count, models_here, runtimes_here, splits, recovery_percent, label, evidence_here),
             encoding="utf-8",
             newline="\n",
         )
@@ -352,6 +354,7 @@ def build_disc_set(
                 for sha, rel, size in hashed
             ],
             "split_files": split_files,
+            "evidence": evidence_here,
             "recovery": (
                 {"format": "PAR2", "percent": recovery_percent, "index": f"{RECOVERY_DIR}/{label}.par2"}
                 if recovery_percent
@@ -383,6 +386,7 @@ def _readme(
     splits: list[SplitFile] | None = None,
     recovery_percent: int = 0,
     label: str = "",
+    evidence: list[str] | None = None,
 ) -> str:
     lines = [
         "STELE ARCHIVE",
@@ -425,6 +429,13 @@ def _readme(
         lines.append("If a file cannot be read or does not match, RESTORE.ps1 repairs it when par2 is on PATH.")
         lines.append("Any PAR2 tool works (par2cmdline, MultiPar, QuickPar). After RESTORE.ps1 copies what it can read:")
         lines.append(f"  par2 r -p -B<Destination> <Destination>\\RECOVERY\\{label}.par2")
+        lines.append("")
+    if evidence:
+        lines.append("EVIDENCE holds the Compliance Vault package for each model: provenance.json,")
+        lines.append("the license files, a CycloneDX SBOM, and checksums, timestamped from the PC's own clock.")
+        for path in evidence:
+            lines.append(f"  - {path}")
+        lines.append(NOT_LEGAL_ADVICE)
         lines.append("")
     lines.append("Read DOCS for the specification and the how-to-use guide.")
     lines.append("See VOLUME.json for the other discs in this set.")

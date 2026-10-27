@@ -1,7 +1,8 @@
 """Stele Pro activation through the Gumroad License API.
 
 Free (no key): search, download, docs, and single-volume ISO export.
-Pro (activated): disc burning, multi-disc spanning, and PAR2 recovery data.
+Pro (activated): disc burning, multi-disc spanning, PAR2 recovery data, and
+the Compliance Vault evidence export.
 
 There are no offline keys in v1. The earlier HMAC offline scheme shipped its
 secret inside the executable, so anyone could mint keys. Do not bring it back:
@@ -40,6 +41,7 @@ TIER_PRO = "Pro"
 FEATURE_BURN = "Disc burning"
 FEATURE_SPAN = "Multi-disc spanning"
 FEATURE_RECOVERY = "PAR2 recovery data"
+FEATURE_EVIDENCE = "Compliance Vault evidence export"
 
 SERVICE = "Stele"
 USERNAME_LICENSE = "studio_license"

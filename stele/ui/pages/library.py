@@ -8,6 +8,7 @@ from pathlib import Path
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
+    QFileDialog,
     QHBoxLayout,
     QLabel,
     QLineEdit,
@@ -25,7 +26,10 @@ from stele.docs.labels import write_case_insert, write_disc_face
 from stele.docs.pdf import write_howto_pdf, write_spec_pdf
 from stele.docs.spec import build_spec, write_spec_markdown
 from stele.download.worker import hash_file
-from stele.models import human_bytes, safe_repo
+from stele.evidence.package import export_evidence
+from stele.license import FEATURE_EVIDENCE, ProRequired, is_activated
+from stele.models import NOT_LEGAL_ADVICE, human_bytes, safe_repo
+from stele.ui.pages.burn_page import _Job
 
 
 class LibraryPage(QWidget):
@@ -33,6 +37,7 @@ class LibraryPage(QWidget):
         super().__init__()
         self.window = window
         self.rows: list[dict] = []
+        self._evidence_job: _Job | None = None
         root = QVBoxLayout(self)
         root.setContentsMargins(16, 16, 16, 16)
         filters = QHBoxLayout()
@@ -65,12 +70,16 @@ class LibraryPage(QWidget):
             ("Regenerate docs", self._regenerate),
             ("Add to burn set", self._add_burn),
             ("Export ISO", self._export),
+            ("Export evidence", self._export_evidence),
         ):
             button = QPushButton(label)
             button.clicked.connect(slot)
             actions.addWidget(button)
         actions.addStretch(1)
         root.addLayout(actions)
+        self.evidence_status = QLabel(NOT_LEGAL_ADVICE)
+        self.evidence_status.setWordWrap(True)
+        root.addWidget(self.evidence_status)
 
         root.addWidget(QLabel("Past burns"))
         self.burns = QTableWidget(0, 6)
@@ -147,6 +156,54 @@ class LibraryPage(QWidget):
         self.window.burn_page.add_catalog(int(row["id"]))
         self.window.nav.setCurrentRow(3)
         self.window.burn_page.export_iso()
+
+    def _export_evidence(self) -> None:
+        row = self._selected()
+        if row is None:
+            QMessageBox.information(self, "Stele", "Select an item in the vault.")
+            return
+        if not is_activated(self.window.db):
+            QMessageBox.information(self, "Stele", str(ProRequired(FEATURE_EVIDENCE)))
+            return
+        if self._evidence_job is not None and self._evidence_job.isRunning():
+            QMessageBox.information(self, "Stele", "An evidence export is already running.")
+            return
+        default = self.window.settings.vault() / "EVIDENCE"
+        default.mkdir(parents=True, exist_ok=True)
+        chosen = QFileDialog.getExistingDirectory(self, "Save evidence ZIP to", str(default))
+        if not chosen:
+            return
+        db = self.window.db
+        vault = self.window.settings.vault()
+        catalog_id = int(row["id"])
+        self.evidence_status.setText(f"Hashing {row['repo_id']} for the evidence package...")
+        job = _Job(lambda: export_evidence(db, vault, catalog_id, Path(chosen)))
+        job.succeeded.connect(self._evidence_done)
+        job.failed.connect(self._evidence_failed)
+        job.blocked.connect(self._evidence_failed)
+        self._evidence_job = job
+        job.start()
+
+    def _evidence_done(self, result) -> None:
+        self.evidence_status.setText(NOT_LEGAL_ADVICE)
+        if result.problems:
+            QMessageBox.warning(
+                self,
+                "Stele",
+                f"Evidence saved to {result.path}\n\n"
+                "These files no longer match what Stele recorded when it archived them:\n"
+                + "\n".join(result.problems[:20]),
+            )
+            return
+        QMessageBox.information(
+            self,
+            "Stele",
+            f"Timestamped evidence saved to {result.path}\n\nThe time comes from this PC's clock.\n{NOT_LEGAL_ADVICE}",
+        )
+
+    def _evidence_failed(self, text: str) -> None:
+        self.evidence_status.setText(NOT_LEGAL_ADVICE)
+        QMessageBox.warning(self, "Stele", text.splitlines()[0] if text else "Evidence export failed.")
 
     def _regenerate(self) -> None:
         row = self._selected()

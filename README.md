@@ -33,7 +33,7 @@ Vault and staging can be moved in Settings. The database and logs stay under Loc
 
 ## Free and Pro
 
-Free covers search, download, the specification and how-to documents, and a single-volume ISO export. Stele Pro adds disc burning, multi-disc sets, and PAR2 recovery data. Pro is checked where the work happens, not only in the window title.
+Free covers search, download, the specification and how-to documents, and a single-volume ISO export. Stele Pro adds disc burning, multi-disc sets, PAR2 recovery data, and the Compliance Vault evidence package. Pro is checked where the work happens, not only in the window title.
 
 Activate Pro in Workspace settings with the license key from your Gumroad receipt. One key covers one person on up to three machines. Stele re-checks the key online about once a week. If Gumroad cannot be reached the license stays active, so an offline archive workstation keeps working; only a refund, a dispute, or a rejected key turns Pro off. There are no offline keys in this version.
 
@@ -73,6 +73,24 @@ With recovery data on (Settings, default 5%), every disc keeps room for a PAR2 r
 
 Stele looks for par2 at the path set in Settings, then `tools\par2.exe` next to the app, then PATH. Release builds bundle `tools\par2.exe` from par2cmdline-turbo (GPL-2.0) when it is present at build time.
 
+## Compliance Vault (Pro)
+
+The Compliance Vault is timestamped evidence of what you archived: where each file came from, its SHA-256, and the license Stele recorded for it. Pick a vault item in Library and choose Export evidence to save one ZIP, by default under `%USERPROFILE%\Stele\vault\EVIDENCE\`. With Pro active, every burn and ISO also gets an evidence ZIP for each model, made when the disc tree is built, under `EVIDENCE/`. RESTORE.ps1 copies it back.
+
+Each ZIP holds:
+
+- `provenance.json`: source page, commit, profile, the license name and when you acknowledged it, and every file with its download URL, the SHA-256 Stele recorded at download, and the SHA-256 measured for this package
+- `LICENSES/`: every license, notice, or use-policy file published with the model, Civitai permissions when the model came from Civitai, and `LICENSE_SUMMARY.txt`, which flags a missing or unknown license
+- `sbom.cdx.json`: a CycloneDX 1.6 SBOM with the model as a machine-learning-model component and each file with its SHA-256
+- `checksums.sha256`, the spec and how-to documents, and the `SOURCE.txt` Stele kept with the files
+- `ZIP_CONTENTS.sha256`: the SHA-256 of every other file in the ZIP
+
+Every file is hashed again when the package is made. A file that is missing or no longer matches is listed in `README.txt` and in `provenance.json`, and Stele warns you; it does not hide the mismatch.
+
+Times come from this PC's own clock. Stele does not contact a time server or a timestamp authority, so the timestamp is only as good as the clock.
+
+Stele records timestamped evidence of what you archived. It is not legal advice; ask a lawyer about your obligations.
+
 ## Disc layout
 
 ```
@@ -85,10 +103,11 @@ STELE/
   DOCS/
   MODELS/<org>--<repo>/<commit>/
   RUNTIME/    (optional)
+  EVIDENCE/   (Pro, Compliance Vault ZIP per model)
   RECOVERY/   (optional, PAR2)
 ```
 
-`RESTORE.ps1` copies MODELS, DOCS, and RUNTIME to a folder you choose and checks every copy against `checksums.sha256`. It stops with an error and a list of files if anything does not match. Run it from each disc of a set with the same `-Destination`; after the last part of a split file arrives, it joins the parts and checks the whole-file SHA-256. It does not use the network and it does not run installers.
+`RESTORE.ps1` copies MODELS, DOCS, RUNTIME, and EVIDENCE to a folder you choose and checks every copy against `checksums.sha256`. It stops with an error and a list of files if anything does not match. Run it from each disc of a set with the same `-Destination`; after the last part of a split file arrives, it joins the parts and checks the whole-file SHA-256. It does not use the network and it does not run installers.
 
 ## Tests
 

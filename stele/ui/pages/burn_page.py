@@ -24,6 +24,7 @@ from stele.burn.imapi import ImapiError, burn_directory, eject, enumerate_record
 from stele.burn.iso import export_iso
 from stele.burn.layout import build_disc_set, model_payload, runtime_pack_file
 from stele.db import utc_now
+from stele.evidence.package import disc_evidence
 from stele.burn.par2 import find_par2
 from stele.license import FEATURE_BURN, FEATURE_RECOVERY, ProRequired, is_activated, require_pro
 from stele.models import DVD_M_DISC_NOTE, MSG_NO_DRIVE, ModelDiscMeta, RuntimeDiscMeta, human_bytes, safe_repo
@@ -246,13 +247,28 @@ class BurnPage(QWidget):
         models: list[ModelDiscMeta] = []
         runtimes: list[RuntimeDiscMeta] = []
         vault = self.window.settings.vault()
+        work = self.window.settings.burn_work() / utc_now().replace(":", "")
         for catalog_id in snap["ids"]:
             row = self.window.db.get_catalog(catalog_id)
             if row is None or row["kind"] != "model":
                 continue
             revision_dir = Path(row["vault_path"])
             sha = str(row.get("commit_sha") or "")
-            payload.extend(model_payload(revision_dir, row["repo_id"], sha))
+            model_files = model_payload(revision_dir, row["repo_id"], sha)
+            payload.extend(model_files)
+            if snap.get("pro"):
+                # Compliance Vault: the evidence ZIP goes on the disc with the model.
+                self.progress.emit(f"Writing evidence for {row['repo_id']}.")
+                payload.append(
+                    disc_evidence(
+                        self.window.db,
+                        vault,
+                        catalog_id,
+                        work.with_name(work.name + "_evidence"),
+                        model_files,
+                        progress=self.progress.emit,
+                    )
+                )
             safe = safe_repo(row["repo_id"])
             docs = vault / "DOCS"
             models.append(
@@ -294,7 +310,6 @@ class BurnPage(QWidget):
                         size=int(pack.get("size") or 0),
                     )
                 )
-        work = self.window.settings.burn_work() / utc_now().replace(":", "")
         return build_disc_set(
             work,
             payload,
