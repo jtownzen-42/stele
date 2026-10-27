@@ -25,8 +25,8 @@ log = logging.getLogger("stele.license")
 
 # Gumroad product_id (Product page → Content → License key → "product_id").
 # Gumroad requires product_id for products created after Jan 2023; the
-# permalink is not accepted for them. Set this before a release build.
-GUMROAD_PRODUCT_ID = ""
+# permalink is not accepted for them.
+GUMROAD_PRODUCT_ID = "nyqJsy-BD6Tnu2XO62Tnvw=="
 GUMROAD_VERIFY_URL = "https://api.gumroad.com/v2/licenses/verify"
 
 # One Pro purchase covers one person on up to this many machines.
