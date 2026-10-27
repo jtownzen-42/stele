@@ -153,6 +153,8 @@ def readme_text(item: EvidenceItem, stamp: dict[str, str]) -> str:
         f"  {CONTENTS_FILE}  SHA-256 of every other file in this package",
         "",
     ]
+    if item.docs_note:
+        lines.extend([f"DOCS/ was left out. {item.docs_note}", ""])
     if found:
         lines.append("WARNING: these files did not match what Stele recorded when it archived them:")
         lines.extend(f"  - {entry}" for entry in found)

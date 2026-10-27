@@ -49,6 +49,7 @@ class EvidenceItem:
     page_url: str
     files: list[EvidenceFile]
     docs: list[Path] = field(default_factory=list)
+    docs_note: str = ""
     pipeline_tag: str = ""
     library_name: str = ""
     civitai: dict | None = None
@@ -116,12 +117,20 @@ def load_item(db: Database, vault_root: Path, catalog_id: int) -> EvidenceItem:
         for name in ("spec.pdf", "spec.md", "howto.pdf", "howto.md")
         if (docs_dir / f"{safe}_{name}").is_file()
     ]
+    # DOCS/<safe>_* is shared by every revision of a repo, so the files may
+    # describe a later download. Keep them only when the spec names this commit.
+    spec_md = docs_dir / f"{safe}_spec.md"
+    docs_note = ""
+    if docs and not (spec_md.is_file() and f"`{commit}`" in spec_md.read_text(encoding="utf-8", errors="replace")):
+        docs = []
+        docs_note = "The docs in the vault describe another revision. Use Regenerate docs in Library, then export again."
     return EvidenceItem(
         kind="model",
         source=source,
         page_url=page_url,
         files=files,
         docs=docs,
+        docs_note=docs_note,
         civitai=meta.get("civitai") if source == "civitai" else None,
         **common,
     )
@@ -142,11 +151,12 @@ def _recorded_hashes(vault_dir: Path, job_files: list[dict]) -> dict[str, str]:
         for sha, rel in parse_checksum_file(checksums):
             if not recorded.get(rel):
                 recorded[rel] = sha.lower()
-    if not recorded:
-        # No job and no checksum file: describe what is on disk now.
-        for path in sorted(vault_dir.rglob("*")):
-            if path.is_file() and path.name not in STELE_WRITTEN:
-                recorded[path.relative_to(vault_dir).as_posix()] = ""
+    # Files on disk that no record names (another profile of the same commit,
+    # or a file added by hand) go on the disc too, so they are listed as "no record".
+    for path in sorted(vault_dir.rglob("*")):
+        relative = path.relative_to(vault_dir).as_posix()
+        if path.is_file() and relative not in STELE_WRITTEN and relative not in recorded:
+            recorded[relative] = ""
     return recorded
 
 

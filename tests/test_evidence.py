@@ -38,7 +38,7 @@ def _archive(tmp_path: Path, *, source: str = "huggingface", license_name: str =
     )
     docs = vault / "DOCS"
     docs.mkdir(parents=True)
-    (docs / f"{repo_id.replace('/', '--')}_spec.md").write_text("# spec\n", encoding="utf-8")
+    (docs / f"{repo_id.replace('/', '--')}_spec.md").write_text(f"# spec\n\n- Commit: `{commit}`\n", encoding="utf-8")
     meta: dict = {}
     if source == "civitai":
         meta = {
@@ -150,6 +150,27 @@ def test_changed_and_missing_files_are_reported(tmp_path: Path):
     assert "WARNING" in files["README.txt"].decode()
     statuses = {f["path"]: f["status"] for f in json.loads(files["provenance.json"])["files"]}
     assert statuses == {"LICENSE": "matches", "config.json": "missing", "model.safetensors": "changed"}
+
+
+def test_files_without_a_record_are_listed(tmp_path: Path):
+    db, vault, catalog_id = _archive(tmp_path)
+    item_dir = Path(db.get_catalog(catalog_id)["vault_path"])
+    (item_dir / "extra.gguf").write_bytes(b"other profile")
+    result = export_evidence(db, vault, catalog_id, tmp_path / "out", now=NOW)
+    assert result.problems == []
+    files = _read(result.path)
+    statuses = {f["path"]: f["status"] for f in json.loads(files["provenance.json"])["files"]}
+    assert statuses["extra.gguf"] == "no record"
+    assert "SOURCE.txt" not in statuses and "checksums.sha256" not in statuses
+    assert "extra.gguf" in files["checksums.sha256"].decode()
+
+
+def test_docs_for_another_revision_are_left_out(tmp_path: Path):
+    db, vault, catalog_id = _archive(tmp_path)
+    (vault / "DOCS" / "org--model_spec.md").write_text("- Commit: `" + "b" * 40 + "`\n", encoding="utf-8")
+    files = _read(export_evidence(db, vault, catalog_id, tmp_path / "out", now=NOW).path)
+    assert not any(name.startswith("DOCS/") for name in files)
+    assert "DOCS/ was left out" in files["README.txt"].decode()
 
 
 def test_sbom_is_valid_cyclonedx_16(tmp_path: Path):
