@@ -9,11 +9,13 @@ from PySide6.QtWidgets import (
     QComboBox,
     QFileDialog,
     QFormLayout,
+    QGroupBox,
     QHBoxLayout,
     QLabel,
     QLineEdit,
     QPushButton,
     QSpinBox,
+    QScrollArea,
     QVBoxLayout,
     QWidget,
 )
@@ -33,9 +35,35 @@ class SettingsPage(QWidget):
     def __init__(self, window) -> None:
         super().__init__()
         self.window = window
-        root = QVBoxLayout(self)
-        root.setContentsMargins(16, 16, 16, 16)
-        form = QFormLayout()
+        outer = QVBoxLayout(self)
+        self.sections_scroll = QScrollArea()
+        self.sections_scroll.setWidgetResizable(True)
+        self.sections_scroll.setFrameShape(QScrollArea.NoFrame)
+        body = QWidget()
+        root = QVBoxLayout(body)
+        root.setContentsMargins(0, 0, 8, 0)
+        root.setSpacing(16)
+        self.sections_scroll.setWidget(body)
+        outer.addWidget(self.sections_scroll, 1)
+        def section(title, description):
+            card = QGroupBox(title)
+            layout = QVBoxLayout(card)
+            layout.setContentsMargins(18, 24, 18, 18)
+            layout.setSpacing(12)
+            hint = QLabel(description)
+            hint.setObjectName("muted")
+            hint.setWordWrap(True)
+            layout.addWidget(hint)
+            form = QFormLayout()
+            form.setHorizontalSpacing(20)
+            form.setVerticalSpacing(12)
+            form.setRowWrapPolicy(QFormLayout.WrapLongRows)
+            form.setFieldGrowthPolicy(QFormLayout.AllNonFixedFieldsGrow)
+            layout.addLayout(form)
+            root.addWidget(card)
+            return form
+
+        form = section("Storage and identity", "Choose where your archives live and how your discs are labeled.")
         self.vault = QLineEdit()
         self.staging = QLineEdit()
         form.addRow("Vault", _browse_row(self.vault, self))
@@ -43,6 +71,10 @@ class SettingsPage(QWidget):
         self.profile = QComboBox()
         self.profile.addItems(PROFILES)
         form.addRow("Default profile", self.profile)
+        self.studio_name = QLineEdit()
+        self.studio_name.setPlaceholderText("Organization or studio name (default: STELE)")
+        form.addRow("Disc branding", self.studio_name)
+        form = section("Disc and recovery defaults", "Set disc capacity, verification and recovery preferences.")
         self.capacity = QComboBox()
         for key, label in CAPACITY_LABELS.items():
             self.capacity.addItem(label, key)
@@ -66,6 +98,7 @@ class SettingsPage(QWidget):
         self.par2 = QLineEdit()
         self.par2.setPlaceholderText("Optional path to par2.exe. Leave empty to use the bundled copy or PATH.")
         form.addRow("PAR2 program", self.par2)
+        form = section("Connections and license", "Keys stay in Windows Credential Manager. Manage each connection separately.")
         self.token = QLabel()
         form.addRow("Hugging Face token", self.token)
         self.civitai = QLabel()
@@ -76,38 +109,33 @@ class SettingsPage(QWidget):
         self.license_key.setPlaceholderText("Paste the Stele Pro license key from your Gumroad receipt")
         self.license_key.setEchoMode(QLineEdit.EchoMode.PasswordEchoOnEdit)
         form.addRow("License key", self.license_key)
-        self.studio_name = QLineEdit()
-        self.studio_name.setPlaceholderText("Organization or Studio Name (Default: STELE)")
-        form.addRow("Disc & Label branding", self.studio_name)
-        root.addLayout(form)
+        def actions(*items):
+            wrap = QWidget()
+            row = QHBoxLayout(wrap)
+            row.setContentsMargins(0, 0, 0, 0)
+            for title, callback in items:
+                button = QPushButton(title)
+                button.clicked.connect(callback)
+                row.addWidget(button)
+            row.addStretch(1)
+            return wrap
+
+        form.insertRow(1, "", actions(("Save token", self._save_token), ("Clear token", self._clear_token)))
+        form.insertRow(3, "", actions(("Save Civitai key", self._save_civitai), ("Clear Civitai key", self._clear_civitai)))
+        form.addRow("", actions(("Activate license", self._activate_license), ("Deactivate license", self._deactivate_license)))
         row = QHBoxLayout()
-        save = QPushButton("Save")
+        save = QPushButton("Save workspace")
         save.setObjectName("primary")
         save.clicked.connect(self._save)
         row.addWidget(save)
-        token_save = QPushButton("Save token")
-        token_save.clicked.connect(self._save_token)
-        token_clear = QPushButton("Clear token")
-        token_clear.clicked.connect(self._clear_token)
-        license_activate = QPushButton("Activate license")
-        license_activate.clicked.connect(self._activate_license)
-        license_deactivate = QPushButton("Deactivate license")
-        license_deactivate.clicked.connect(self._deactivate_license)
-        civitai_save = QPushButton("Save Civitai key")
-        civitai_save.clicked.connect(self._save_civitai)
-        civitai_clear = QPushButton("Clear Civitai key")
-        civitai_clear.clicked.connect(self._clear_civitai)
+        self.feedback = QLabel("Changes apply when you save.")
+        self.feedback.setObjectName("muted")
+        self.feedback.setWordWrap(True)
+        row.addWidget(self.feedback, 1)
         logs = QPushButton("Open log folder")
         logs.clicked.connect(self._logs)
-        row.addWidget(token_save)
-        row.addWidget(token_clear)
-        row.addWidget(civitai_save)
-        row.addWidget(civitai_clear)
-        row.addWidget(license_activate)
-        row.addWidget(license_deactivate)
         row.addWidget(logs)
-        row.addStretch(1)
-        root.addLayout(row)
+        outer.addLayout(row)
         root.addStretch(1)
         self.load()
 
@@ -181,7 +209,8 @@ class SettingsPage(QWidget):
             try:
                 custom_bytes = int(self.custom_bytes.text().strip())
             except ValueError:
-                self.token.setText("Custom capacity must be a whole number of bytes.")
+                self.feedback.setText("Custom capacity must be a whole number of bytes.")
+                self.custom_bytes.setFocus()
                 return
         settings.set_vault(Path(self.vault.text().strip()))
         settings.set_staging(Path(self.staging.text().strip()))
@@ -196,6 +225,7 @@ class SettingsPage(QWidget):
         settings.set_par2_path(self.par2.text())
         settings.set_studio_name(self.studio_name.text())
         settings.ensure()
+        self.feedback.setText("Workspace saved.")
 
     def _save_token(self) -> None:
         from PySide6.QtWidgets import QInputDialog, QLineEdit as Edit

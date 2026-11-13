@@ -6,7 +6,7 @@ import logging
 import threading
 
 from PySide6.QtCore import Qt, QSize
-from PySide6.QtGui import QFont
+from PySide6.QtGui import QFont, QKeySequence, QShortcut
 from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
@@ -60,7 +60,7 @@ class MainWindow(QMainWindow):
 
         side = QWidget()
         side.setObjectName("sidebar")
-        side.setFixedWidth(220)
+        side.setFixedWidth(204)
         side_layout = QVBoxLayout(side)
         side_layout.setContentsMargins(0, 28, 0, 16)
         side_layout.setSpacing(6)
@@ -84,7 +84,7 @@ class MainWindow(QMainWindow):
         self.nav.setSpacing(2)
         for index, name in enumerate(NAV):
             item = QListWidgetItem(nav_icon(index), name, self.nav)
-            item.setToolTip(PAGE_INFO[index][1])
+            item.setToolTip(f"{PAGE_INFO[index][1]} (Ctrl+{index + 1})")
         self.nav.currentRowChanged.connect(self._go)
         side_layout.addWidget(self.nav, 1)
         footer = QLabel("MODEL ARCHIVING\nBuilt for the long term.")
@@ -104,7 +104,7 @@ class MainWindow(QMainWindow):
         header = QWidget()
         header.setObjectName("pageHeader")
         header_layout = QHBoxLayout(header)
-        header_layout.setContentsMargins(28, 24, 28, 22)
+        header_layout.setContentsMargins(28, 18, 28, 18)
         headings = QVBoxLayout()
         headings.setSpacing(5)
         self.breadcrumb = QLabel("WORKSPACE / DISCOVER")
@@ -163,9 +163,20 @@ class MainWindow(QMainWindow):
         self.setStatusBar(status)
         self._status = QLabel("Idle · Ready for your next archive")
         status.addWidget(self._status, 1)
-        policy = QLabel("One file at a time  /  SHA-256 integrity")
+        policy = QLabel("Ctrl+L  Search    /    Ctrl+1–5  Navigate")
         policy.setObjectName("brandNote")
         status.addPermanentWidget(policy)
+
+        self._shortcuts = []
+        for index in range(len(NAV)):
+            shortcut = QShortcut(QKeySequence(f"Ctrl+{index + 1}"), self)
+            shortcut.activated.connect(lambda i=index: self.nav.setCurrentRow(i))
+            self._shortcuts.append(shortcut)
+        for key, callback in (("Ctrl+,", self._open_settings), ("Ctrl+L", self._focus_search)):
+            shortcut = QShortcut(QKeySequence(key), self)
+            shortcut.activated.connect(callback)
+            self._shortcuts.append(shortcut)
+        self.gear.setToolTip("Workspace settings (Ctrl+,)")
 
         self.worker = None
         if start_worker:
@@ -219,6 +230,11 @@ class MainWindow(QMainWindow):
         self._set_heading(index)
         self.stack.setCurrentIndex(index)
         self.refresh_all()
+
+    def _focus_search(self) -> None:
+        self.nav.setCurrentRow(0)
+        self.discover_page.query.setFocus()
+        self.discover_page.query.selectAll()
 
     def _open_settings(self) -> None:
         self.nav.setCurrentRow(-1)

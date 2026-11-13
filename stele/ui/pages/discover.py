@@ -20,7 +20,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from stele.credentials import clear_token, get_civitai_key, get_token, set_token, token_status
+from stele.credentials import clear_token, civitai_key_status, get_civitai_key, get_token, set_token, token_status
 from stele.db import utc_now
 from stele.hub.civitai import CivitaiClient, default_selection, is_civitai, plan_civitai
 from stele.hub.client import HubClient, HubError
@@ -73,7 +73,8 @@ class DiscoverPage(QWidget):
         self.source.currentIndexChanged.connect(self._source_changed)
         top.addWidget(self.source)
         self.query = QLineEdit()
-        self.query.setPlaceholderText("Repository id or keywords")
+        self.query.setPlaceholderText("Repository ID or keywords  ·  Ctrl+L")
+        self.query.setAccessibleName("Search models")
         self.query.returnPressed.connect(self.search)
         top.addWidget(self.query, 1)
         search = QPushButton("Search")
@@ -83,12 +84,16 @@ class DiscoverPage(QWidget):
         self.token_label = QLabel(token_status())
         self.token_label.setObjectName("muted")
         top.addWidget(self.token_label)
-        save = QPushButton("Save token")
+        self.save_token_button = save = QPushButton("Save token")
         save.clicked.connect(self._save_token)
-        clear = QPushButton("Clear token")
+        self.clear_token_button = clear = QPushButton("Clear token")
         clear.clicked.connect(self._clear_token)
         top.addWidget(save)
         top.addWidget(clear)
+        self.manage_key = QPushButton("Manage key")
+        self.manage_key.clicked.connect(self.window._open_settings)
+        self.manage_key.hide()
+        top.addWidget(self.manage_key)
         root.addLayout(top)
 
         filters = QHBoxLayout()
@@ -105,13 +110,21 @@ class DiscoverPage(QWidget):
             filters.addWidget(box)
         root.addLayout(filters)
 
-        split = QSplitter()
+        self.split = split = QSplitter()
+        split.setChildrenCollapsible(False)
+        result_panel = QWidget()
+        result_layout = QVBoxLayout(result_panel)
+        result_layout.setContentsMargins(0, 0, 0, 0)
+        self.result_count = QLabel("SEARCH RESULTS")
+        self.result_count.setObjectName("eyebrow")
+        result_layout.addWidget(self.result_count)
         self.results = QTableWidget(0, 5)
         self.results.setHorizontalHeaderLabels(["Repository", "Author", "Updated", "Size", "Gated"])
         self.results.setSelectionBehavior(QTableWidget.SelectRows)
         self.results.setSelectionMode(QTableWidget.SingleSelection)
         self.results.itemSelectionChanged.connect(self._open_selected)
-        split.addWidget(self.results)
+        result_layout.addWidget(self.results, 1)
+        split.addWidget(result_panel)
 
         detail = QWidget()
         detail_layout = QVBoxLayout(detail)
@@ -143,6 +156,9 @@ class DiscoverPage(QWidget):
         rev_row.addWidget(self.profile, 1)
         detail_layout.addLayout(rev_row)
 
+        file_heading = QLabel("ARCHIVE CONTENTS")
+        file_heading.setObjectName("eyebrow")
+        detail_layout.addWidget(file_heading)
         self.files = QTableWidget(0, 3)
         self.files.setHorizontalHeaderLabels(["Include", "File", "Size"])
         self.files.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Fixed)
@@ -173,7 +189,7 @@ class DiscoverPage(QWidget):
         self._plan = None
 
     def refresh(self) -> None:
-        self.token_label.setText(token_status())
+        self._refresh_access()
         preferred = self.window.settings.default_profile()
         if preferred in (PROFILE_GGUF, PROFILE_INFERENCE, "Full repo"):
             self.profile.setCurrentText(preferred)
@@ -181,8 +197,16 @@ class DiscoverPage(QWidget):
     def _civitai(self) -> bool:
         return self.source.currentData() == "civitai"
 
+    def _refresh_access(self) -> None:
+        civitai = self._civitai()
+        self.token_label.setText(civitai_key_status() if civitai else token_status())
+        self.save_token_button.setVisible(not civitai)
+        self.clear_token_button.setVisible(not civitai)
+        self.manage_key.setVisible(civitai)
+
     def _source_changed(self, _index: int) -> None:
         civitai = self._civitai()
+        self._refresh_access()
         for box in (self.pipeline, self.library, self.license, self.gated, self.format_box):
             box.setVisible(not civitai)
         self.civitai_type.setVisible(civitai)
@@ -197,6 +221,11 @@ class DiscoverPage(QWidget):
         self.hits = []
         self.details = None
         self.results.setRowCount(0)
+        self.result_count.setText("SEARCH RESULTS")
+        self.title.setText("Archive preview")
+        self.card.clear()
+        self.preview.setText("Select a model to plan its archive.")
+        self.notice.clear()
         self.files.setRowCount(0)
         self._replan()
 
@@ -270,6 +299,7 @@ class DiscoverPage(QWidget):
 
     def _show_hits(self, hits: list[SearchHit]) -> None:
         self.hits = hits
+        self.result_count.setText(f"SEARCH RESULTS  /  {len(hits)}")
         self.notice.setText("" if hits else "No repositories matched.")
         self.results.setRowCount(len(hits))
         for row, hit in enumerate(hits):
@@ -282,6 +312,7 @@ class DiscoverPage(QWidget):
             ]
             for col, value in enumerate(values):
                 item = QTableWidgetItem(value)
+                item.setToolTip(value or "")
                 item.setFlags(item.flags() ^ Qt.ItemIsEditable)
                 self.results.setItem(row, col, item)
         self.results.resizeColumnsToContents()
@@ -370,7 +401,6 @@ class DiscoverPage(QWidget):
                 capacity_bytes=self.window.settings.capacity_bytes(),
             )
         self._plan = plan
-        lines = [f"{human_bytes(item.size):>10}  {item.path}" for item in plan.files]
         head = f"{len(plan.files)} files · {human_bytes(plan.total_bytes)}"
         if plan.disc_estimate:
             head += f" · about {plan.disc_estimate} disc(s)"
@@ -378,7 +408,7 @@ class DiscoverPage(QWidget):
             head += f"\n{plan.fallback_note}"
         if plan.blocked_reason and plan.blocked_reason != plan.fallback_note:
             head += f"\n{plan.blocked_reason}"
-        self.preview.setText(head + ("\n" + "\n".join(lines[:40]) if lines else ""))
+        self.preview.setText(head)
         blocked = bool(plan.blocked_reason) or not plan.files
         gated = bool(self.details.gated and not get_token())
         ready = self.ack.isChecked() and not blocked and not gated and bool(self.details.sha)

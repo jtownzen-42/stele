@@ -61,6 +61,10 @@ QStatusBar::item { border: none; }
 QLabel#muted { color: #a7b1bf; }
 QLabel#warning { color: #e4bc89; }
 QLabel#emptyState { color: #9ca9ba; background: transparent; font-size: 13px; padding: 12px; }
+QGroupBox { border: 1px solid #343d49; border-radius: 9px; margin-top: 10px; font-weight: 600; }
+QGroupBox::title { subcontrol-origin: margin; subcontrol-position: top left; left: 16px; padding: 0 7px; color: #e4bd90; }
+QProgressBar { background: #10151b; border: 1px solid #343d49; border-radius: 5px; text-align: center; min-height: 18px; }
+QProgressBar::chunk { background: #967449; border-radius: 4px; }
 QToolTip { color: #f3eadf; background: #29323d; border: 1px solid #657181; padding: 6px; }
 """
 _assets = Path(__file__).with_name("assets")
@@ -144,6 +148,8 @@ def polish_tables(page, hints: dict[str, str]):
         for index, width in enumerate((76, 250, 110, 110)):
             page.table.setColumnWidth(index, width)
     if hasattr(page, 'results'):
+        page.results.setColumnWidth(0, 240)
+        page.results.horizontalHeader().setSectionResizeMode(0, QHeaderView.Interactive)
         header = page.files.horizontalHeader()
         header.setStretchLastSection(False)
         header.setSectionResizeMode(1, QHeaderView.Stretch)
